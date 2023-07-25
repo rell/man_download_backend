@@ -1,3 +1,5 @@
 venv/
 config.ini
 maritimeapp/migrations/
+.idea/
+__pycache__/
