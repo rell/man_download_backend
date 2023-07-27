@@ -4,6 +4,10 @@ from rest_framework.decorators import api_view
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.http import Http404
+from django.core.paginator import Paginator
+from django.http import JsonResponse
+
+from django.shortcuts import render
 from django.shortcuts import get_object_or_404
 from django.views.generic import ListView
 from .models import Site, SiteMeasurementsDaily15, SiteMeasurementsDaily20, \
@@ -126,10 +130,14 @@ class SiteMeasurementsSeries15List(CreateDeleteMixin, generics.ListCreateAPIView
 #     queryset = SiteMeasurementsAllPoints10.objects.all()
 
 
-class AllSitesMeasurementsAll10List(CreateDeleteMixin, generics.ListCreateAPIView):
-    queryset = SiteMeasurementsAllPoints10.objects.all()
+class AllSitesMeasurementsAP10List(CreateDeleteMixin, generics.ListCreateAPIView):
     serializer_class = SiteMeasurementsAllPoints10Serializer
     pagination_class = PageNumberPagination
+
+    def get_queryset(self):
+        name = self.kwargs['name']
+        queryset = SiteMeasurementsAllPoints10.objects.filter(site__name=name)
+        return queryset
 
 
 class SiteDelete(generics.DestroyAPIView):

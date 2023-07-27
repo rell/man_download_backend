@@ -6,13 +6,13 @@ from .views import (
     SiteMeasurementsDaily20List, SiteMeasurementsAllPoints10List, \
     SiteMeasurementsAllPoints15List, SiteMeasurementsAllPoints20List, \
     SiteMeasurementsSeries20List, SiteMeasurementsSeries15List, SiteDelete, \
-    AllSitesMeasurementsAll10List,
+    AllSitesMeasurementsAP10List,
 
 )
 
 urlpatterns = [
-    path('sites/', SitesList.as_view(), name='sites-list'),
     path('', apiOverview, name='api-overview'),
+    path('sites/', SitesList.as_view(), name='sites-list'),
     path('sites/<str:name>/', SiteDetail.as_view(), name='site-detail'),
     path('sites/<str:name>/measurements/daily15/', SiteMeasurementsDaily15List.as_view(),
          name='site-measurements-daily15'),
@@ -28,7 +28,7 @@ urlpatterns = [
          name='site-measurements-series20'),
     path('sites/<str:name>/measurements/series15/', SiteMeasurementsSeries15List.as_view(),
          name='site-measurements-series15'),
-    path('measurements/allpoints10/', AllSitesMeasurementsAll10List.as_view(),
+    path('sites/<str:name>/measurements/allpoints10/', AllSitesMeasurementsAP10List.as_view(),
          name='all-sites-measurements-allpoints10'),
     path('sites/<str:name>/delete/', SiteDelete.as_view(), name='site-delete'),
 ]

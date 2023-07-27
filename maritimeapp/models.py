@@ -11,8 +11,8 @@ class Site(models.Model):
 
 class SiteMeasurementsAllPoints10(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField()
-    time = models.TimeField()
+    date = models.DateField(db_index=True)
+    time = models.TimeField(db_index=True)
     air_mass = models.FloatField()
     latlng = gis_models.PointField(default=Point(0, 0))
     aod_340nm = models.FloatField()
@@ -32,8 +32,8 @@ class SiteMeasurementsAllPoints10(models.Model):
 
 class SiteMeasurementsAllPoints15(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField()
-    time = models.TimeField()
+    date = models.DateField(db_index=True)
+    time = models.TimeField(db_index=True)
     air_mass = models.FloatField()
     latlng = gis_models.PointField(default=Point(0, 0))
     aod_340nm = models.FloatField()
@@ -53,8 +53,8 @@ class SiteMeasurementsAllPoints15(models.Model):
 
 class SiteMeasurementsAllPoints20(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField()
-    time = models.TimeField()
+    date = models.DateField(db_index=True)
+    time = models.TimeField(db_index=True)
     air_mass = models.FloatField()
     latlng = gis_models.PointField(default=Point(0, 0))
     aod_340nm = models.FloatField()
@@ -74,8 +74,8 @@ class SiteMeasurementsAllPoints20(models.Model):
 
 class SiteMeasurementsDaily15(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField()
-    time = models.TimeField()
+    date = models.DateField(db_index=True)
+    time = models.TimeField(db_index=True)
     air_mass = models.FloatField()
     latlng = gis_models.PointField(default=Point(0, 0))
     # latitude = models.FloatField()
@@ -108,8 +108,8 @@ class SiteMeasurementsDaily15(models.Model):
 
 class SiteMeasurementsDaily20(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField()
-    time = models.TimeField()
+    date = models.DateField(db_index=True)
+    time = models.TimeField(db_index=True)
     air_mass = models.FloatField()
     latlng = gis_models.PointField(default=Point(0, 0))
     # latitude = models.FloatField()
@@ -142,8 +142,8 @@ class SiteMeasurementsDaily20(models.Model):
 
 class SiteMeasurementsSeries20(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField()
-    time = models.TimeField()
+    date = models.DateField(db_index=True)
+    time = models.TimeField(db_index=True)
     air_mass = models.FloatField()
     latlng = gis_models.PointField(default=Point(0, 0))
     aod_340nm = models.FloatField()
@@ -174,8 +174,8 @@ class SiteMeasurementsSeries20(models.Model):
 
 class SiteMeasurementsSeries15(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField()
-    time = models.TimeField()
+    date = models.DateField(db_index=True)
+    time = models.TimeField(db_index=True)
     air_mass = models.FloatField()
     latlng = gis_models.PointField(default=Point(0, 0))
     aod_340nm = models.FloatField()
