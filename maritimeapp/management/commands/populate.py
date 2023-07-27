@@ -54,7 +54,7 @@ class Command(BaseCommand):
                         site_obj, created = Site.objects.get_or_create(name=site, description='')
                         if created:
                             print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lat), float(lng))
+                        latlng = Point(float(lng), float(lat))
                         site_measurements_obj, created = SiteMeasurementsAllPoints10.objects.get_or_create(
                             site=site_obj,
                             date=date,
@@ -95,7 +95,7 @@ class Command(BaseCommand):
                         site_obj, created = Site.objects.get_or_create(name=site, description='')
                         if created:
                             print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lat), float(lng))
+                        latlng = Point(float(lng), float(lat))
                         site_measurements_obj, created = SiteMeasurementsAllPoints15.objects.get_or_create(
                             site=site_obj,
                             date=date,
@@ -136,7 +136,7 @@ class Command(BaseCommand):
                         site_obj, created = Site.objects.get_or_create(name=site, description='')
                         if created:
                             print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lat), float(lng))
+                        latlng = Point(float(lng), float(lat))
                         site_measurements_obj, created = SiteMeasurementsAllPoints20.objects.get_or_create(
                             site=site_obj,
                             date=date,
@@ -177,7 +177,7 @@ class Command(BaseCommand):
                         site_obj, created = Site.objects.get_or_create(name=site, description='')
                         if created:
                             print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lat), float(lng))
+                        latlng = Point(float(lng), float(lat))
                         site_measurements_obj, created = SiteMeasurementsDaily15.objects.get_or_create(
                             site=site_obj,
                             date=date,
@@ -229,7 +229,7 @@ class Command(BaseCommand):
                         site_obj, created = Site.objects.get_or_create(name=site, description='')
                         if created:
                             print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lat), float(lng))
+                        latlng = Point(float(lng), float(lat))
                         site_measurements_obj, created = SiteMeasurementsDaily20.objects.get_or_create(
                             site=site_obj,
                             date=date,
@@ -267,7 +267,7 @@ class Command(BaseCommand):
                         print(f"Error creating SiteMeasurementsDaily20 object: {e}")
                         raise ValidationError("Invalid geometry provided.")
 
-        if file_type == 'daily.lev20':
+        if file_type == 'series.lev15':
             for i, line in enumerate(lines[start_index:]):
                 fields = line.strip().split(',')
                 if len(fields) == 28:
@@ -281,7 +281,7 @@ class Command(BaseCommand):
                         site_obj, created = Site.objects.get_or_create(name=site, description='')
                         if created:
                             print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lat), float(lng))
+                        latlng = Point(float(lng), float(lat))
                         site_measurements_obj, created = SiteMeasurementsSeries15.objects.get_or_create(
                             site=site_obj,
                             date=date,
@@ -319,7 +319,7 @@ class Command(BaseCommand):
                         print(f"Error creating SiteMeasurementsSeries15 object: {e}")
                         raise ValidationError("Invalid geometry provided.")
 
-        if file_type == 'daily.lev20':
+        if file_type == 'series.lev20':
             for i, line in enumerate(lines[start_index:]):
                 fields = line.strip().split(',')
                 if len(fields) == 28:
@@ -333,7 +333,7 @@ class Command(BaseCommand):
                         site_obj, created = Site.objects.get_or_create(name=site, description='')
                         if created:
                             print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lat), float(lng))
+                        latlng = Point(float(lng), float(lat))
                         site_measurements_obj, created = SiteMeasurementsSeries20.objects.get_or_create(
                             site=site_obj,
                             date=date,
