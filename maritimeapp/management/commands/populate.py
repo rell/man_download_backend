@@ -9,7 +9,6 @@ from django.contrib.gis.geos import Point
 from django.contrib.gis.geos import GEOSException
 from rest_framework.exceptions import ValidationError
 from maritimeapp.models import *
-
 NUM_WORKERS = 5
 
 
@@ -166,7 +165,7 @@ class Command(BaseCommand):
         if file_type == 'daily.lev15':
             for i, line in enumerate(lines[start_index:]):
                 fields = line.strip().split(',')
-                if len(fields) == 28:
+                if len(fields) == 29:
                     date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, std_340nm, std_380nm, std_440nm, std_500nm, std_675nm, std_870nm, std_1020nm, std_1640nm, std_water_vapor, std_angstrom_exponent, num_observations, last_processing_date, aeronet_number, microtops_number = line.split(
                         ',')
                     date = date.split(':')
@@ -218,7 +217,7 @@ class Command(BaseCommand):
         if file_type == 'daily.lev20':
             for i, line in enumerate(lines[start_index:]):
                 fields = line.strip().split(',')
-                if len(fields) == 28:
+                if len(fields) == 29:
                     date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, std_340nm, std_380nm, std_440nm, std_500nm, std_675nm, std_870nm, std_1020nm, std_1640nm, std_water_vapor, std_angstrom_exponent,num_observations, last_processing_date, aeronet_number, microtops_number = line.split(
                         ',')
                     date = date.split(':')
@@ -268,9 +267,10 @@ class Command(BaseCommand):
                         raise ValidationError("Invalid geometry provided.")
 
         if file_type == 'series.lev15':
+            print("HERE")
             for i, line in enumerate(lines[start_index:]):
                 fields = line.strip().split(',')
-                if len(fields) == 28:
+                if len(fields) == 29:
                     date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, std_340nm, std_380nm, std_440nm, std_500nm, std_675nm, std_870nm, std_1020nm, std_1640nm, std_water_vapor, std_angstrom_exponent,num_observations, last_processing_date, aeronet_number, microtops_number = line.split(
                         ',')
                     date = date.split(':')
@@ -320,9 +320,10 @@ class Command(BaseCommand):
                         raise ValidationError("Invalid geometry provided.")
 
         if file_type == 'series.lev20':
+            print("HERE")
             for i, line in enumerate(lines[start_index:]):
                 fields = line.strip().split(',')
-                if len(fields) == 28:
+                if len(fields) == 29:
                     date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, std_340nm, std_380nm, std_440nm, std_500nm, std_675nm, std_870nm, std_1020nm, std_1640nm, std_water_vapor, std_angstrom_exponent,num_observations, last_processing_date, aeronet_number, microtops_number = line.split(
                         ',')
                     date = date.split(':')
@@ -393,26 +394,26 @@ class Command(BaseCommand):
                 # Submit the CSV files to the thread pool for processing
                 futures = []
                 for member in tar.getmembers():
-                    if member.isfile() and member.name.endswith(file_endings[0]):
-                        file_name = member.name[:-len(file_endings[0])]
-                        print(f"Submitting file {file_name} to thread pool")
-                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[0])))
-                    if member.isfile() and member.name.endswith(file_endings[1]):
-                        file_name = member.name[:-len(file_endings[1])]
-                        print(f"Submitting file {file_name} to thread pool")
-                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[1])))
-                    if member.isfile() and member.name.endswith(file_endings[2]):
-                        file_name = member.name[:-len(file_endings[2])]
-                        print(f"Submitting file {file_name} to thread pool")
-                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[2])))
-                    if member.isfile() and member.name.endswith(file_endings[3]):
-                        file_name = member.name[:-len(file_endings[3])]
-                        print(f"Submitting file {file_name} to thread pool")
-                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[3])))
-                    if member.isfile() and member.name.endswith(file_endings[4]):
-                        file_name = member.name[:-len(file_endings[4])]
-                        print(f"Submitting file {file_name} to thread pool")
-                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[4])))
+                    # if member.isfile() and member.name.endswith(file_endings[0]):
+                    #     file_name = member.name[:-len(file_endings[0])]
+                    #     print(f"Submitting file {file_name} to thread pool")
+                    #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[0])))
+                    # if member.isfile() and member.name.endswith(file_endings[1]):
+                    #     file_name = member.name[:-len(file_endings[1])]
+                    #     print(f"Submitting file {file_name} to thread pool")
+                    #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[1])))
+                    # if member.isfile() and member.name.endswith(file_endings[2]):
+                    #     file_name = member.name[:-len(file_endings[2])]
+                    #     print(f"Submitting file {file_name} to thread pool")
+                    #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[2])))
+                    # if member.isfile() and member.name.endswith(file_endings[3]):
+                    #     file_name = member.name[:-len(file_endings[3])]
+                    #     print(f"Submitting file {file_name} to thread pool")
+                    #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[3])))
+                    # if member.isfile() and member.name.endswith(file_endings[4]):
+                    #     file_name = member.name[:-len(file_endings[4])]
+                    #     print(f"Submitting file {file_name} to thread pool")
+                    #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[4])))
                     if member.isfile() and member.name.endswith(file_endings[5]):
                         file_name = member.name[:-len(file_endings[5])]
                         print(f"Submitting file {file_name} to thread pool")

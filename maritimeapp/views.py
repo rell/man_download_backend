@@ -1,3 +1,5 @@
+import math
+
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
@@ -6,6 +8,10 @@ from rest_framework.response import Response
 from django.http import Http404
 from django.core.paginator import Paginator
 from django.http import JsonResponse
+from  django.db.models import Q
+from datetime import datetime
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, generics
 
 from django.shortcuts import render
 from django.shortcuts import get_object_or_404
@@ -23,11 +29,11 @@ from .serializers import SiteSerializer, SiteMeasurementsDaily15Serializer, \
 def apiOverview(request):
     # TODO: UPDATE TO CURRENT URLS
     api_urls = {
-        'List': '/site-list/',
-        'Detail View': 'site-detail/<str:pk>',
-        'Create': '/site-create/',
-        'Update': '/site-update/<str:pk>',
-        'Delete': '/site-delete/<str:pk>',
+        # 'List': '/site-list/',
+        # 'Detail View': 'site-detail/<str:pk>',
+        # 'Create': '/site-create/',
+        # 'Update': '/site-update/<str:pk>',
+        # 'Delete': '/site-delete/<str:pk>',
     }
     return Response(api_urls)
 
@@ -62,6 +68,8 @@ class CreateDeleteMixin:
 class SitesList(CreateDeleteMixin, generics.ListCreateAPIView):
     queryset = Site.objects.all()
     serializer_class = SiteSerializer
+    pagination_class = None  # disable pagination
+
 
 
 # class SiteDetail(CreateDeleteMixin, generics.RetrieveUpdateAPIView):
@@ -83,7 +91,38 @@ class SiteDetail(APIView):
 class SiteMeasurementsDaily15List(CreateDeleteMixin, generics.ListCreateAPIView):
     queryset = SiteMeasurementsDaily15.objects.all()
     serializer_class = SiteMeasurementsDaily15Serializer
-    pagination_class = PageNumberPagination
+
+    def get_queryset(self):
+        name = self.kwargs['name']
+        queryset = SiteMeasurementsDaily15.objects.filter(site_id__name=name)
+        queryset = [obj for obj in queryset if not any(math.isnan(getattr(obj, field)) for field in obj.__dict__.keys() if isinstance(getattr(obj, field), float))]
+        return queryset
+
+
+
+class SiteMeasurementsDaily15ListDate(generics.ListCreateAPIView):
+    queryset = SiteMeasurementsDaily15.objects.all()
+    serializer_class = SiteMeasurementsDaily15Serializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['site', 'date']
+    ordering_fields = ['date', 'time']
+    ordering = ['-date', '-time']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        start_date_str = self.request.query_params.get('startdate', None)
+        end_date_str = self.request.query_params.get('enddate', None)
+        if start_date_str and end_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            queryset = queryset.filter(date__range=[start_date, end_date])
+        elif start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            queryset = queryset.filter(date__gte=start_date)
+        elif end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            queryset = queryset.filter(date__lte=end_date)
+        return queryset
 
 
 class SiteMeasurementsDaily20List(CreateDeleteMixin, generics.ListCreateAPIView):
@@ -91,24 +130,76 @@ class SiteMeasurementsDaily20List(CreateDeleteMixin, generics.ListCreateAPIView)
     serializer_class = SiteMeasurementsDaily20Serializer
     pagination_class = PageNumberPagination
 
+    def get_queryset(self):
+        name = self.kwargs['name']
+        queryset = SiteMeasurementsDaily15.objects.filter(site_id__name=name)
+        queryset = [obj for obj in queryset if not any(math.isnan(getattr(obj, field)) for field in obj.__dict__.keys() if isinstance(getattr(obj, field), float))]
+        return queryset
 
-class SiteMeasurementsAllPoints10List(CreateDeleteMixin, generics.ListCreateAPIView):
+
+class SiteMeasurementsDaily20ListDate(generics.ListCreateAPIView):
+    queryset = SiteMeasurementsDaily20.objects.all()
+    serializer_class = SiteMeasurementsDaily20Serializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['site', 'date']
+    ordering_fields = ['date', 'time']
+    ordering = ['-date', '-time']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        start_date_str = self.request.query_params.get('startdate', None)
+        end_date_str = self.request.query_params.get('enddate', None)
+        if start_date_str and end_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            queryset = queryset.filter(date__range=[start_date, end_date])
+        elif start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            queryset = queryset.filter(date__gte=start_date)
+        elif end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            queryset = queryset.filter(date__lte=end_date)
+        return queryset
+
+
+class SiteMeasurementsAP10List(CreateDeleteMixin, generics.ListCreateAPIView):
     queryset = SiteMeasurementsAllPoints10.objects.all()
     serializer_class = SiteMeasurementsAllPoints10Serializer
     pagination_class = PageNumberPagination
+    page_size = 100
 
+    def get_queryset(self):
+        name = self.kwargs['name']
+        queryset = SiteMeasurementsDaily15.objects.filter(site_id__name=name)
+        queryset = [obj for obj in queryset if not any(
+            math.isnan(getattr(obj, field)) for field in obj.__dict__.keys() if isinstance(getattr(obj, field), float))]
+        return queryset
 
-class SiteMeasurementsAllPoints15List(CreateDeleteMixin, generics.ListCreateAPIView):
+class SiteMeasurementsAP15List(CreateDeleteMixin, generics.ListCreateAPIView):
     queryset = SiteMeasurementsAllPoints15.objects.all()
     serializer_class = SiteMeasurementsAllPoints15Serializer
     pagination_class = PageNumberPagination
+    page_size = 100
 
+    def get_queryset(self):
+        name = self.kwargs['name']
+        queryset = SiteMeasurementsDaily15.objects.filter(site_id__name=name)
+        queryset = [obj for obj in queryset if not any(
+            math.isnan(getattr(obj, field)) for field in obj.__dict__.keys() if isinstance(getattr(obj, field), float))]
+        return queryset
 
-class SiteMeasurementsAllPoints20List(CreateDeleteMixin, generics.ListCreateAPIView):
+class SiteMeasurementsAP20List(CreateDeleteMixin, generics.ListCreateAPIView):
     queryset = SiteMeasurementsAllPoints20.objects.all()
     serializer_class = SiteMeasurementsAllPoints20Serializer
     pagination_class = PageNumberPagination
+    page_size = 100
 
+    def get_queryset(self):
+        name = self.kwargs['name']
+        queryset = SiteMeasurementsDaily15.objects.filter(site_id__name=name)
+        queryset = [obj for obj in queryset if not any(
+            math.isnan(getattr(obj, field)) for field in obj.__dict__.keys() if isinstance(getattr(obj, field), float))]
+        return queryset
 
 class SiteMeasurementsSeries20List(CreateDeleteMixin, generics.ListCreateAPIView):
     queryset = SiteMeasurementsSeries20.objects.all()
@@ -136,9 +227,8 @@ class AllSitesMeasurementsAP10List(CreateDeleteMixin, generics.ListCreateAPIView
 
     def get_queryset(self):
         name = self.kwargs['name']
-        queryset = SiteMeasurementsAllPoints10.objects.filter(site__name=name)
+        queryset = SiteMeasurementsAllPoints10.objects.filter(site_id__name=name)
         return queryset
-
 
 class SiteDelete(generics.DestroyAPIView):
     queryset = Site.objects.all()

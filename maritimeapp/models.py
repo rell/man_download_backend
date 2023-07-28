@@ -30,6 +30,7 @@ class SiteMeasurementsAllPoints10(models.Model):
     microtops_number = models.IntegerField()
 
 
+
 class SiteMeasurementsAllPoints15(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     date = models.DateField(db_index=True)

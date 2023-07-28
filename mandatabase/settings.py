@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     'rest_framework_gis',
     # restframework
     'rest_framework',
+    # filters for django
+    'django_filters',
 
 ]
 
