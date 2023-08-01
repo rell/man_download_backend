@@ -125,6 +125,23 @@ class SiteMeasurementsDaily15ListDate(generics.ListCreateAPIView):
         return queryset
 
 
+class SiteMeasurementsDaily15ListLatLng(generics.ListAPIView):
+    queryset = SiteMeasurementsDaily15.objects.all()
+    serializer_class = SiteMeasurementsDaily15Serializer
+
+    def get_queryset(self):
+        min_lat = self.request.query_params.get('min_lat', None)
+        max_lat = self.request.query_params.get('max_lat', None)
+        min_lng = self.request.query_params.get('min_lng', None)
+        max_lng = self.request.query_params.get('max_lng', None)
+
+        queryset = self.queryset
+
+        if min_lat and max_lat and min_lng and max_lng:
+            queryset = queryset.filter(latlng__within=(min_lng, min_lat, max_lng, max_lat))
+
+        return queryset
+
 class SiteMeasurementsDaily20List(CreateDeleteMixin, generics.ListCreateAPIView):
     queryset = SiteMeasurementsDaily20.objects.all()
     serializer_class = SiteMeasurementsDaily20Serializer
@@ -159,6 +176,24 @@ class SiteMeasurementsDaily20ListDate(generics.ListCreateAPIView):
         elif end_date_str:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
             queryset = queryset.filter(date__lte=end_date)
+        return queryset
+
+
+class SiteMeasurementsDaily20ListLatLng(generics.ListAPIView):
+    queryset = SiteMeasurementsDaily20.objects.all()
+    serializer_class = SiteMeasurementsDaily20Serializer
+
+    def get_queryset(self):
+        min_lat = self.request.query_params.get('min_lat', None)
+        max_lat = self.request.query_params.get('max_lat', None)
+        min_lng = self.request.query_params.get('min_lng', None)
+        max_lng = self.request.query_params.get('max_lng', None)
+
+        queryset = self.queryset
+
+        if min_lat and max_lat and min_lng and max_lng:
+            queryset = queryset.filter(latlng__within=(min_lng, min_lat, max_lng, max_lat))
+
         return queryset
 
 

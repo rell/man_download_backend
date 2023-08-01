@@ -3,14 +3,28 @@ import io
 import re
 import tarfile
 import requests
-import keyboard
 from django.core.management.base import BaseCommand
-from django.contrib.gis.geos import Point
 from django.contrib.gis.geos import GEOSException
 from rest_framework.exceptions import ValidationError
 from maritimeapp.models import *
+from django.contrib.gis.geos import Point
+
 NUM_WORKERS = 5
 
+format_one = [
+    'all_points.lev10',
+    'all_points.lev15',
+    'all_points.lev20',
+]
+format_two = [
+    'daily.lev15',
+    'daily.lev20',
+    'series.lev15',
+    'series.lev20',
+]
+format_three = [
+
+]
 
 class Command(BaseCommand):
     help = 'Download and process file from static URL'
@@ -25,26 +39,39 @@ class Command(BaseCommand):
         lines = csv_contents.decode('latin-1').splitlines()
         site = re.sub(r'[_-]\d+', '', file_name.split('/')[1])[:-1]
 
-        print("SITE:", site, file_type)
-        # print(site)
-
         # version, name_file_type, disclaimer, authors_contact, headers = lines[:5]
         start_index = None
 
         for i, line in enumerate(lines, start=1):
             if line.startswith("Date(dd:mm:yyyy)"):
-                print(line)
                 start_index = i
                 break
 
         # print(start_index)
-        from django.contrib.gis.geos import Point
-        if file_type == 'all_points.lev10':
+        if file_type in format_one:
             for i, line in enumerate(lines[start_index:]):
                 fields = line.strip().split(',')
                 if len(fields) == 18:
-                    date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, last_processing_date, aeronet_number, microtops_number = line.split(
-                        ',')
+                    (
+                        date,
+                        time,
+                        air_mass,
+                        lat, lng,
+                        aod_340nm,
+                        aod_380nm,
+                        aod_440nm,
+                        aod_500nm,
+                        aod_675nm,
+                        aod_870nm,
+                        aod_1020nm,
+                        aod_1640nm,
+                        water_vapor,
+                        angstrom_exponent,
+                        last_processing_date,
+                        aeronet_number,
+                        microtops_number
+                    ) = line.split(',')
+
                     date = date.split(':')
                     date = f'{date[2]}-{date[1]}-{date[0]}'
                     last_processing_date = last_processing_date.split(':')
@@ -53,8 +80,15 @@ class Command(BaseCommand):
                         site_obj, created = Site.objects.get_or_create(name=site, description='')
                         if created:
                             print(f"Created new site: {site_obj}")
+
                         latlng = Point(float(lng), float(lat))
-                        site_measurements_obj, created = SiteMeasurementsAllPoints10.objects.get_or_create(
+                        model_classes = {
+                            format_one[0]: SiteMeasurementsAllPoints10,
+                            format_one[1]: SiteMeasurementsAllPoints15,
+                            format_one[2]: SiteMeasurementsAllPoints20,
+                        }
+
+                        site_measurements_obj, created = model_classes[file_type].objects.get_or_create(
                             site=site_obj,
                             date=date,
                             time=time,
@@ -80,298 +114,104 @@ class Command(BaseCommand):
                         print(f"Error creating SiteMeasurementsAllPoints10 object: {e}")
                         raise ValidationError("Invalid geometry provided.")
 
-        if file_type == 'all_points.lev15':
+        if file_type in format_two:
             for i, line in enumerate(lines[start_index:]):
-                fields = line.strip().split(',')
-                if len(fields) == 18:
-                    date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, last_processing_date, aeronet_number, microtops_number = line.split(
-                        ',')
-                    date = date.split(':')
-                    date = f'{date[2]}-{date[1]}-{date[0]}'
-                    last_processing_date = last_processing_date.split(':')
-                    last_processing_date = f'{last_processing_date[2]}-{last_processing_date[1]}-{last_processing_date[0]}'
-                    try:
-                        site_obj, created = Site.objects.get_or_create(name=site, description='')
-                        if created:
-                            print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lng), float(lat))
-                        site_measurements_obj, created = SiteMeasurementsAllPoints15.objects.get_or_create(
-                            site=site_obj,
-                            date=date,
-                            time=time,
-                            air_mass=float(air_mass),
-                            latlng=latlng,
-                            aod_340nm=float(aod_340nm),
-                            aod_380nm=float(aod_380nm),
-                            aod_440nm=float(aod_440nm),
-                            aod_500nm=float(aod_500nm),
-                            aod_675nm=float(aod_675nm),
-                            aod_870nm=float(aod_870nm),
-                            aod_1020nm=float(aod_1020nm),
-                            aod_1640nm=float(aod_1640nm),
-                            water_vapor=float(water_vapor),
-                            angstrom_exponent=float(angstrom_exponent),
-                            last_processing_date=last_processing_date,
-                            aeronet_number=int(aeronet_number),
-                            microtops_number=int(microtops_number)
-                        )
-                        if created:
-                            print(f"Created new site measurement: {site_measurements_obj}")
-                    except (GEOSException, ValueError) as e:
-                        print(f"Error creating SiteMeasurementsAllPoints15 object: {e}")
-                        raise ValidationError("Invalid geometry provided.")
+                (
+                    date,
+                    time,
+                    air_mass,
+                    latitude,
+                    longitude,
+                    aod_340nm,
+                    aod_380nm,
+                    aod_440nm,
+                    aod_500nm,
+                    aod_675nm,
+                    aod_870nm,
+                    aod_1020nm,
+                    aod_1640nm,
+                    water_vapor,
+                    angstrom_exponent,
+                    std_340nm,
+                    std_380nm,
+                    std_440nm,
+                    std_500nm,
+                    std_675nm,
+                    std_870nm,
+                    std_1020nm,
+                    std_1640nm,
+                    std_water_vapor,
+                    std_angstrom_exponent,
+                    number_of_observations,
+                    last_processing_date,
+                    aeronet_number,
+                    microtops_number,
+                 ) = line.split(',')
 
-        if file_type == 'all_points.lev20':
-            for i, line in enumerate(lines[start_index:]):
-                fields = line.strip().split(',')
-                if len(fields) == 18:
-                    date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, last_processing_date, aeronet_number, microtops_number = line.split(
-                        ',')
-                    date = date.split(':')
-                    date = f'{date[2]}-{date[1]}-{date[0]}'
-                    last_processing_date = last_processing_date.split(':')
-                    last_processing_date = f'{last_processing_date[2]}-{last_processing_date[1]}-{last_processing_date[0]}'
-                    try:
-                        site_obj, created = Site.objects.get_or_create(name=site, description='')
-                        if created:
-                            print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lng), float(lat))
-                        site_measurements_obj, created = SiteMeasurementsAllPoints20.objects.get_or_create(
-                            site=site_obj,
-                            date=date,
-                            time=time,
-                            air_mass=float(air_mass),
-                            latlng=latlng,
-                            aod_340nm=float(aod_340nm),
-                            aod_380nm=float(aod_380nm),
-                            aod_440nm=float(aod_440nm),
-                            aod_500nm=float(aod_500nm),
-                            aod_675nm=float(aod_675nm),
-                            aod_870nm=float(aod_870nm),
-                            aod_1020nm=float(aod_1020nm),
-                            aod_1640nm=float(aod_1640nm),
-                            water_vapor=float(water_vapor),
-                            angstrom_exponent=float(angstrom_exponent),
-                            last_processing_date=last_processing_date,
-                            aeronet_number=int(aeronet_number),
-                            microtops_number=int(microtops_number)
-                        )
-                        if created:
-                            print(f"Created new site measurement: {site_measurements_obj}")
-                    except (GEOSException, ValueError) as e:
-                        print(f"Error creating SiteMeasurementsAllPoints20 object: {e}")
-                        raise ValidationError("Invalid geometry provided.")
+                x = ['29:01:2016', '14:52:34', '1.778074', '-70.510600', '-8.180200', '-999.000000', '0.043827', '0.039175',
+                 '0.031645', '0.022100', '0.021680', '-999.000000', '-999.000000', '-999.000000', '0.922785',
+                 '0.000000', '0.009605', '0.007698', '0.005012', '0.002449', '0.002369', '4990005.000000',
+                 '4990005.000000', '0.000000', '0.185696', '5', '21:06:2019', '893', '19749']
+                date = date.split(':')
+                date = f'{date[2]}-{date[1]}-{date[0]}'
+                last_processing_date = last_processing_date.split(':')
+                last_processing_date = f'{last_processing_date[2]}-{last_processing_date[1]}-{last_processing_date[0]}'
+                try:
+                    site_obj, created = Site.objects.get_or_create(name=site, description='')
+                    if created:
+                        print(f"Created new site: {site_obj}")
+                    print(longitude)
+                    latlng = Point(float(longitude), float(latitude))
+                    model_classes = {
+                        format_two[0]: SiteMeasurementsSeries15,
+                        format_two[1]: SiteMeasurementsSeries20,
+                        format_two[2]: SiteMeasurementsDaily15,
+                        format_two[3]: SiteMeasurementsDaily20,
+                    }
+                    site_measurements_obj, created = model_classes[file_type].objects.get_or_create(
+                        site=site_obj,
+                        date=date,
+                        time=time,
+                        air_mass=float(air_mass),
+                        latlng=latlng,
+                        aod_340nm=float(aod_340nm),
+                        aod_380nm=float(aod_380nm),
+                        aod_440nm=float(aod_440nm),
+                        aod_500nm=float(aod_500nm),
+                        aod_675nm=float(aod_675nm),
+                        aod_870nm=float(aod_870nm),
+                        aod_1020nm=float(aod_1020nm),
+                        aod_1640nm=float(aod_1640nm),
+                        water_vapor=float(water_vapor),
+                        angstrom_exponent_440_870=float(angstrom_exponent),
+                        std_340nm=float(std_340nm),
+                        std_380nm=float(std_380nm),
+                        std_440nm=float(std_440nm),
+                        std_500nm=float(std_500nm),
+                        std_675nm=float(std_675nm),
+                        std_870nm=float(std_870nm),
+                        std_1020nm=float(std_1020nm),
+                        std_1640nm=float(std_1640nm),
+                        std_water_vapor=float(std_water_vapor),
+                        std_angstrom_exponent_440_870=float(std_angstrom_exponent),
+                        num_observations=float(number_of_observations),
+                        last_processing_date=last_processing_date,
+                        aeronet_number=int(aeronet_number),
+                        microtops_number=int(microtops_number)
+                    )
+                    if created:
+                        print(f"Created new site measurement: {site_measurements_obj}")
+                except (GEOSException, ValueError) as e:
+                    print(f"Error creating SiteMeasurementsDaily15 object: {e}")
+                    raise ValidationError("Invalid geometry provided.")
 
-        if file_type == 'daily.lev15':
-            for i, line in enumerate(lines[start_index:]):
-                fields = line.strip().split(',')
-                if len(fields) == 29:
-                    date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, std_340nm, std_380nm, std_440nm, std_500nm, std_675nm, std_870nm, std_1020nm, std_1640nm, std_water_vapor, std_angstrom_exponent, num_observations, last_processing_date, aeronet_number, microtops_number = line.split(
-                        ',')
-                    date = date.split(':')
-                    date = f'{date[2]}-{date[1]}-{date[0]}'
-                    last_processing_date = last_processing_date.split(':')
-                    last_processing_date = f'{last_processing_date[2]}-{last_processing_date[1]}-{last_processing_date[0]}'
-                    try:
-                        site_obj, created = Site.objects.get_or_create(name=site, description='')
-                        if created:
-                            print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lng), float(lat))
-                        site_measurements_obj, created = SiteMeasurementsDaily15.objects.get_or_create(
-                            site=site_obj,
-                            date=date,
-                            time=time,
-                            air_mass=float(air_mass),
-                            latlng=latlng,
-                            aod_340nm=float(aod_340nm),
-                            aod_380nm=float(aod_380nm),
-                            aod_440nm=float(aod_440nm),
-                            aod_500nm=float(aod_500nm),
-                            aod_675nm=float(aod_675nm),
-                            aod_870nm=float(aod_870nm),
-                            aod_1020nm=float(aod_1020nm),
-                            aod_1640nm=float(aod_1640nm),
-                            water_vapor=float(water_vapor),
-                            angstrom_exponent=float(angstrom_exponent),
-                            std_340nm=float(std_340nm),
-                            std_380nm=float(std_380nm),
-                            std_440nm=float(std_440nm),
-                            std_500nm=float(std_500nm),
-                            std_675nm=float(std_675nm),
-                            std_870nm=float(std_870nm),
-                            std_1020nm=float(std_1020nm),
-                            std_1640nm=float(std_1640nm),
-                            std_water_vapor=float(std_water_vapor),
-                            std_angstrom_exponent=float(std_angstrom_exponent),
-                            num_observations=float(num_observations),
-                            last_processing_date=last_processing_date,
-                            aeronet_number=int(aeronet_number),
-                            microtops_number=int(microtops_number)
-                        )
-                        if created:
-                            print(f"Created new site measurement: {site_measurements_obj}")
-                    except (GEOSException, ValueError) as e:
-                        print(f"Error creating SiteMeasurementsDaily15 object: {e}")
-                        raise ValidationError("Invalid geometry provided.")
-
-        if file_type == 'daily.lev20':
-            for i, line in enumerate(lines[start_index:]):
-                fields = line.strip().split(',')
-                if len(fields) == 29:
-                    date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, std_340nm, std_380nm, std_440nm, std_500nm, std_675nm, std_870nm, std_1020nm, std_1640nm, std_water_vapor, std_angstrom_exponent,num_observations, last_processing_date, aeronet_number, microtops_number = line.split(
-                        ',')
-                    date = date.split(':')
-                    date = f'{date[2]}-{date[1]}-{date[0]}'
-                    last_processing_date = last_processing_date.split(':')
-                    last_processing_date = f'{last_processing_date[2]}-{last_processing_date[1]}-{last_processing_date[0]}'
-                    try:
-                        site_obj, created = Site.objects.get_or_create(name=site, description='')
-                        if created:
-                            print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lng), float(lat))
-                        site_measurements_obj, created = SiteMeasurementsDaily20.objects.get_or_create(
-                            site=site_obj,
-                            date=date,
-                            time=time,
-                            air_mass=float(air_mass),
-                            latlng=latlng,
-                            aod_340nm=float(aod_340nm),
-                            aod_380nm=float(aod_380nm),
-                            aod_440nm=float(aod_440nm),
-                            aod_500nm=float(aod_500nm),
-                            aod_675nm=float(aod_675nm),
-                            aod_870nm=float(aod_870nm),
-                            aod_1020nm=float(aod_1020nm),
-                            aod_1640nm=float(aod_1640nm),
-                            water_vapor=float(water_vapor),
-                            angstrom_exponent=float(angstrom_exponent),
-                            std_340nm=float(std_340nm),
-                            std_380nm=float(std_380nm),
-                            std_440nm=float(std_440nm),
-                            std_500nm=float(std_500nm),
-                            std_675nm=float(std_675nm),
-                            std_870nm=float(std_870nm),
-                            std_1020nm=float(std_1020nm),
-                            std_1640nm=float(std_1640nm),
-                            std_water_vapor=float(std_water_vapor),
-                            std_angstrom_exponent=float(std_angstrom_exponent),
-                            num_observations=float(num_observations),
-                            last_processing_date=last_processing_date,
-                            aeronet_number=int(aeronet_number),
-                            microtops_number=int(microtops_number)
-                        )
-                        if created:
-                            print(f"Created new site measurement: {site_measurements_obj}")
-                    except (GEOSException, ValueError) as e:
-                        print(f"Error creating SiteMeasurementsDaily20 object: {e}")
-                        raise ValidationError("Invalid geometry provided.")
-
-        if file_type == 'series.lev15':
-            print("HERE")
-            for i, line in enumerate(lines[start_index:]):
-                fields = line.strip().split(',')
-                if len(fields) == 29:
-                    date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, std_340nm, std_380nm, std_440nm, std_500nm, std_675nm, std_870nm, std_1020nm, std_1640nm, std_water_vapor, std_angstrom_exponent,num_observations, last_processing_date, aeronet_number, microtops_number = line.split(
-                        ',')
-                    date = date.split(':')
-                    date = f'{date[2]}-{date[1]}-{date[0]}'
-                    last_processing_date = last_processing_date.split(':')
-                    last_processing_date = f'{last_processing_date[2]}-{last_processing_date[1]}-{last_processing_date[0]}'
-                    try:
-                        site_obj, created = Site.objects.get_or_create(name=site, description='')
-                        if created:
-                            print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lng), float(lat))
-                        site_measurements_obj, created = SiteMeasurementsSeries15.objects.get_or_create(
-                            site=site_obj,
-                            date=date,
-                            time=time,
-                            air_mass=float(air_mass),
-                            latlng=latlng,
-                            aod_340nm=float(aod_340nm),
-                            aod_380nm=float(aod_380nm),
-                            aod_440nm=float(aod_440nm),
-                            aod_500nm=float(aod_500nm),
-                            aod_675nm=float(aod_675nm),
-                            aod_870nm=float(aod_870nm),
-                            aod_1020nm=float(aod_1020nm),
-                            aod_1640nm=float(aod_1640nm),
-                            water_vapor=float(water_vapor),
-                            angstrom_exponent=float(angstrom_exponent),
-                            std_340nm=float(std_340nm),
-                            std_380nm=float(std_380nm),
-                            std_440nm=float(std_440nm),
-                            std_500nm=float(std_500nm),
-                            std_675nm=float(std_675nm),
-                            std_870nm=float(std_870nm),
-                            std_1020nm=float(std_1020nm),
-                            std_1640nm=float(std_1640nm),
-                            std_water_vapor=float(std_water_vapor),
-                            std_angstrom_exponent=float(std_angstrom_exponent),
-                            num_observations=float(num_observations),
-                            last_processing_date=last_processing_date,
-                            aeronet_number=int(aeronet_number),
-                            microtops_number=int(microtops_number)
-                        )
-                        if created:
-                            print(f"Created new site measurement: {site_measurements_obj}")
-                    except (GEOSException, ValueError) as e:
-                        print(f"Error creating SiteMeasurementsSeries15 object: {e}")
-                        raise ValidationError("Invalid geometry provided.")
-
-        if file_type == 'series.lev20':
-            print("HERE")
-            for i, line in enumerate(lines[start_index:]):
-                fields = line.strip().split(',')
-                if len(fields) == 29:
-                    date, time, air_mass, lat, lng, aod_340nm, aod_380nm, aod_440nm, aod_500nm, aod_675nm, aod_870nm, aod_1020nm, aod_1640nm, water_vapor, angstrom_exponent, std_340nm, std_380nm, std_440nm, std_500nm, std_675nm, std_870nm, std_1020nm, std_1640nm, std_water_vapor, std_angstrom_exponent,num_observations, last_processing_date, aeronet_number, microtops_number = line.split(
-                        ',')
-                    date = date.split(':')
-                    date = f'{date[2]}-{date[1]}-{date[0]}'
-                    last_processing_date = last_processing_date.split(':')
-                    last_processing_date = f'{last_processing_date[2]}-{last_processing_date[1]}-{last_processing_date[0]}'
-                    try:
-                        site_obj, created = Site.objects.get_or_create(name=site, description='')
-                        if created:
-                            print(f"Created new site: {site_obj}")
-                        latlng = Point(float(lng), float(lat))
-                        site_measurements_obj, created = SiteMeasurementsSeries20.objects.get_or_create(
-                            site=site_obj,
-                            date=date,
-                            time=time,
-                            air_mass=float(air_mass),
-                            latlng=latlng,
-                            aod_340nm=float(aod_340nm),
-                            aod_380nm=float(aod_380nm),
-                            aod_440nm=float(aod_440nm),
-                            aod_500nm=float(aod_500nm),
-                            aod_675nm=float(aod_675nm),
-                            aod_870nm=float(aod_870nm),
-                            aod_1020nm=float(aod_1020nm),
-                            aod_1640nm=float(aod_1640nm),
-                            water_vapor=float(water_vapor),
-                            angstrom_exponent=float(angstrom_exponent),
-                            std_340nm=float(std_340nm),
-                            std_380nm=float(std_380nm),
-                            std_440nm=float(std_440nm),
-                            std_500nm=float(std_500nm),
-                            std_675nm=float(std_675nm),
-                            std_870nm=float(std_870nm),
-                            std_1020nm=float(std_1020nm),
-                            std_1640nm=float(std_1640nm),
-                            std_water_vapor=float(std_water_vapor),
-                            std_angstrom_exponent=float(std_angstrom_exponent),
-                            num_observations=float(num_observations),
-                            last_processing_date=last_processing_date,
-                            aeronet_number=int(aeronet_number),
-                            microtops_number=int(microtops_number)
-                        )
-                        if created:
-                            print(f"Created new site measurement: {site_measurements_obj}")
-                    except (GEOSException, ValueError) as e:
-                        print(f"Error creating SiteMeasurementsSeries20 object: {e}")
-                        raise ValidationError("Invalid geometry provided.")
-
+                except Exception as e:
+                    print(e)
+                    print(i)
+                    print(line.split(','))
+                    print(len(line.split(',')))
+                    print(len(line.split(',')))
+                    print(file_type)
     def handle(self, *args, **options):
 
         file_endings = [
@@ -382,7 +222,8 @@ class Command(BaseCommand):
             'series.lev20',
             'daily.lev15',
             'daily.lev20',
-        ]
+
+      ]
         # Download the file from the static URL
         url = 'https://aeronet.gsfc.nasa.gov/new_web/All_MAN_Data_V3.tar.gz'
         response = requests.get(url)
@@ -394,26 +235,26 @@ class Command(BaseCommand):
                 # Submit the CSV files to the thread pool for processing
                 futures = []
                 for member in tar.getmembers():
-                    # if member.isfile() and member.name.endswith(file_endings[0]):
-                    #     file_name = member.name[:-len(file_endings[0])]
-                    #     print(f"Submitting file {file_name} to thread pool")
-                    #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[0])))
-                    # if member.isfile() and member.name.endswith(file_endings[1]):
-                    #     file_name = member.name[:-len(file_endings[1])]
-                    #     print(f"Submitting file {file_name} to thread pool")
-                    #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[1])))
-                    # if member.isfile() and member.name.endswith(file_endings[2]):
-                    #     file_name = member.name[:-len(file_endings[2])]
-                    #     print(f"Submitting file {file_name} to thread pool")
-                    #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[2])))
-                    # if member.isfile() and member.name.endswith(file_endings[3]):
-                    #     file_name = member.name[:-len(file_endings[3])]
-                    #     print(f"Submitting file {file_name} to thread pool")
-                    #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[3])))
-                    # if member.isfile() and member.name.endswith(file_endings[4]):
-                    #     file_name = member.name[:-len(file_endings[4])]
-                    #     print(f"Submitting file {file_name} to thread pool")
-                    #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[4])))
+                    if member.isfile() and member.name.endswith(file_endings[0]):
+                        file_name = member.name[:-len(file_endings[0])]
+                        print(f"Submitting file {file_name} to thread pool")
+                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[0])))
+                    if member.isfile() and member.name.endswith(file_endings[1]):
+                        file_name = member.name[:-len(file_endings[1])]
+                        print(f"Submitting file {file_name} to thread pool")
+                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[1])))
+                    if member.isfile() and member.name.endswith(file_endings[2]):
+                        file_name = member.name[:-len(file_endings[2])]
+                        print(f"Submitting file {file_name} to thread pool")
+                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[2])))
+                    if member.isfile() and member.name.endswith(file_endings[3]):
+                        file_name = member.name[:-len(file_endings[3])]
+                        print(f"Submitting file {file_name} to thread pool")
+                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[3])))
+                    if member.isfile() and member.name.endswith(file_endings[4]):
+                        file_name = member.name[:-len(file_endings[4])]
+                        print(f"Submitting file {file_name} to thread pool")
+                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[4])))
                     if member.isfile() and member.name.endswith(file_endings[5]):
                         file_name = member.name[:-len(file_endings[5])]
                         print(f"Submitting file {file_name} to thread pool")
