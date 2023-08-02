@@ -1,28 +1,20 @@
 from django.urls import path, include
 from . import views
-from .views import (
-    apiOverview,
-    SitesList, SiteDetail, SiteMeasurementsDaily15List, \
-    SiteMeasurementsDaily20List, SiteMeasurementsAP10List, \
-    SiteMeasurementsAP15List, SiteMeasurementsAP20List, \
-    SiteMeasurementsSeries20List, SiteMeasurementsSeries15List, SiteDelete, \
-    AllSitesMeasurementsAP10List, SiteMeasurementsDaily20ListDate, \
-    SiteMeasurementsDaily15ListDate, SiteMeasurementsDaily20ListLatLng, \
-    SiteMeasurementsDaily15ListLatLng
-
-)
+from .views import *
 
 
 urlpatterns = [
     path('', apiOverview, name='api-overview'),
     path('sites/', SitesList.as_view(), name='sites-list'),
     # path('sites/<str:name>/', SiteDetail.as_view(), name='site-detail'),
-    path('sites/<str:name>/measurements/daily15/', SiteMeasurementsDaily15List.as_view(),
+    path('measurements/', SiteMeasurementsList.as_view(),
          name='site-measurements-daily15'),
-    path('sites/measurements/D15/', SiteMeasurementsDaily15ListDate.as_view(), name='measurement-list'),
-    path('sites/measurements/D15/<str:startdate>/', SiteMeasurementsDaily15ListDate.as_view(), name='measurement-list'),
-    path('sites/measurements/D15/<str:startdate>/<str:enddate>/', SiteMeasurementsDaily15ListDate.as_view(),
-         name='measurement-list'),
+    path('measurements/info/', measurementsOverview, name='measurements-overview'),    # path('sites/measurements/D15/', SiteMeasurementsDaily15ListDate.as_view(), name='measurement-list'),
+    # path('sites/measurements/D15/<str:startdate>/', SiteMeasurementsDaily15ListDate.as_view(), name='measurement-list'),
+    # path('sites/measurements/D15/<str:startdate>/<str:enddate>/', SiteMeasurementsDaily15ListDate.as_view(),
+    #      name='measurement-list'),
+    # path('sites/measurements/D15/', SiteMeasurementsDaily15List.as_view(),
+    #      name='measurement-list'),
     path('sites/measurements/D15/', SiteMeasurementsDaily15ListLatLng.as_view(), name='site-measurements-daily20-list'),
 
     path('sites/<str:name>/measurements/daily20/', SiteMeasurementsDaily20List.as_view(),

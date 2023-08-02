@@ -30,7 +30,6 @@ class SiteMeasurementsAllPoints10(models.Model):
     microtops_number = models.IntegerField()
 
 
-
 class SiteMeasurementsAllPoints15(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     date = models.DateField(db_index=True)
@@ -79,8 +78,6 @@ class SiteMeasurementsDaily15(models.Model):
     time = models.TimeField(db_index=True)
     air_mass = models.FloatField()
     latlng = gis_models.PointField(default=Point(0, 0))
-    # latitude = models.FloatField()
-    # longitude = models.FloatField()
     aod_340nm = models.FloatField()
     aod_380nm = models.FloatField()
     aod_440nm = models.FloatField()
@@ -113,8 +110,6 @@ class SiteMeasurementsDaily20(models.Model):
     time = models.TimeField(db_index=True)
     air_mass = models.FloatField()
     latlng = gis_models.PointField(default=Point(0, 0))
-    # latitude = models.FloatField()
-    # longitude = models.FloatField()
     aod_340nm = models.FloatField()
     aod_380nm = models.FloatField()
     aod_440nm = models.FloatField()

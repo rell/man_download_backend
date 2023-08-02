@@ -57,6 +57,14 @@ class SiteMeasurementsAllPoints20Serializer(serializers.ModelSerializer):
         return SiteMeasurementsAllPoints20.objects.create(site=site, **validated_data)
 
 
+class SiteMeasurementsDaily15JSONSerializer(serializers.ModelSerializer):
+    site = SiteSerializer()
+
+    class Meta:
+        model = SiteMeasurementsDaily15
+        fields = '__all__'
+
+
 class SiteMeasurementsDaily15Serializer(serializers.ModelSerializer):
     site = SiteSerializer(read_only=True)
 
