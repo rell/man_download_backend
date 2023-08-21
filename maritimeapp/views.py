@@ -108,12 +108,12 @@ class SitesAtDate(generics.ListCreateAPIView):
         end_date = self.request.GET.get('end_date')
 
         if start_date and end_date:
-            queryset = SiteMeasurementsSeries20.objects.filter(date__gte=start_date, date__lte=end_date).distinct()
+            queryset = SiteMeasurementsSeries15.objects.filter(date__gte=start_date, date__lte=end_date).distinct()
 
         elif start_date:
-            queryset = SiteMeasurementsSeries20.objects.filter(date__gte=start_date).distinct()
+            queryset = SiteMeasurementsSeries15.objects.filter(date__gte=start_date).distinct()
         elif end_date:
-            queryset = SiteMeasurementsSeries20.objects.filter(date__lte=end_date).distinct()
+            queryset = SiteMeasurementsSeries15.objects.filter(date__lte=end_date).distinct()
 
         else:
             queryset = SitesList.queryset

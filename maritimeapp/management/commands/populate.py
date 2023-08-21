@@ -2,6 +2,7 @@ import concurrent.futures
 from multiprocessing import Pool
 from datetime import datetime
 from django.contrib.gis.geos import Point
+import os
 import io
 import re
 import numpy as np
@@ -36,7 +37,8 @@ format_three = [
 class Command(BaseCommand):
     help = 'Download and process file from static URL'
 
-    def validate_data(self, row_fields, row, type):
+    @classmethod
+    def validate_data(cls, row_fields, row, type):
         if type is float:
             for field_name in row_fields:
                 field_value = getattr(row, field_name)
@@ -46,15 +48,12 @@ class Command(BaseCommand):
                     print("RAN SUCCESSFULLY")
                     return True
 
-    def process_chunk(self, chunk, filetype, site, file):
+    @classmethod
+    def process_chunk(cls, chunk, filetype, site, file):
         # print(chunk.head(10))
         # print(filetype)
-
-
         if filetype in format_one:
             pass
-
-
 
         if filetype in format_two:
             # print('running')
@@ -62,95 +61,130 @@ class Command(BaseCommand):
             # site_measurements_list = []
             # Process the data in the chunk as needed
             model_classes = {
-                format_two[0]: SiteMeasurementsSeries15,
-                format_two[1]: SiteMeasurementsSeries20,
-                format_two[2]: SiteMeasurementsDaily15,
-                format_two[3]: SiteMeasurementsDaily20,
+                format_two[0]: SiteMeasurementsDaily15,
+                format_two[1]: SiteMeasurementsDaily20,
+                # format_two[2]: SiteMeasurementsSeries15,
+                # format_two[3]: SiteMeasurementsSeries20,
             }
             model = model_classes[filetype]
+            print(model, site)
+            daily_header = ['Date(dd:mm:yyyy)', 'Time(hh:mm:ss)', 'Air Mass', 'Latitude', 'Longitude', 'AOD_340nm',
+                            'AOD_380nm', 'AOD_440nm', 'AOD_500nm', 'AOD_675nm', 'AOD_870nm', 'AOD_1020nm',
+                            'AOD_1640nm', 'Water Vapor(cm)', '440-870nm_Angstrom_Exponent', 'STD_340nm',
+                            'STD_380nm', 'STD_440nm', 'STD_500nm', 'STD_675nm', 'STD_870nm', 'STD_1020nm',
+                            'STD_1640nm', 'STD_Water_Vapor(cm)', 'STD_440-870nm_Angstrom_Exponent',
+                            'Number_of_Observations', 'Last_Processing_Date(dd:mm:yyyy)', 'AERONET_Number',
+                            'Microtops_Number']
+            chunk.columns = daily_header
             for index, row in chunk.iterrows():
-                # print(file)
-                # print(row)
-                latlng = Point(float(row['Longitude']), float(row['Latitude']))
-                date_str = row['Date(dd:mm:yyyy)'].split(':')
-                date = f'{date_str[2]}-{date_str[1]}-{date_str[0]}'
+                print(row)
+                try:
 
-                # date = datetime.strptime(date_str + ' ' + time_str, '%d:%m:%Y %H:%M:%S')
-                last_processing = row['Last_Processing_Date(dd:mm:yyyy)'].split(':')
-                last_processing_date = f'{last_processing[2]}-{last_processing[1]}-{last_processing[0]}'
-                print(model)
-                # print(site_measurement, file)
-                float_fields = [
-                    'air_mass', 'aod_340nm', 'aod_380nm', 'aod_440nm', 'aod_500nm',
-                    'aod_675nm', 'aod_870nm', 'aod_1020nm', 'aod_1640nm', 'water_vapor',
-                    'angstrom_exponent_440_870', 'std_340nm', 'std_380nm', 'std_440nm',
-                    'std_500nm', 'std_675nm', 'std_870nm', 'std_1020nm', 'std_1640nm', 'std_water_vapor',
-                    'std_angstrom_exponent_440_870'
-                ]
-                row_floats = ['Air Mass', 'AOD_340nm', 'AOD_380nm', 'AOD_440nm', 'AOD_500nm', 'AOD_675nm', 'AOD_870nm',
-                              'AOD_1020nm', 'AOD_1640nm', 'Water Vapor(cm)', 'STD_340nm', 'STD_380nm', 'STD_440nm',
-                              'STD_500nm', 'STD_675nm', 'STD_870nm', 'STD_1020nm', 'STD_1640nm', 'STD_Water_Vapor(cm)',
-                              'Longitude', 'Latitude']
+                    latlng = Point(float(row['Longitude']), float(row['Latitude']))
+                    date_str = row['Date(dd:mm:yyyy)'].split(':')
+                    date = f'{date_str[2]}-{date_str[1]}-{date_str[0]}'
 
-                data_validated = self.validate_data(row_floats, row, float)
-                print(data_validated)
-                if data_validated:
-                    print("OBJECT PUT INTO DB")
-                    site_obj, created = Site.objects.get_or_create(name=site, description='')
-                    model_classes[filetype].objects.get_or_create(
-                        site=site_obj,
-                        date=date,
-                        time=row['Time(hh:mm:ss)'],
-                        air_mass=float(row['Air Mass']),
-                        latlng=latlng,
-                        aod_340nm=float(row['AOD_340nm']),
-                        aod_380nm=float(row['AOD_380nm']),
-                        aod_440nm=float(row['AOD_440nm']),
-                        aod_500nm=float(row['AOD_500nm']),
-                        aod_675nm=float(row['AOD_675nm']),
-                        aod_870nm=float(row['AOD_870nm']),
-                        aod_1020nm=float(row['AOD_1020nm']),
-                        aod_1640nm=float(row['AOD_1640nm']),
-                        water_vapor=float(row['Water Vapor(cm)']),
-                        angstrom_exponent_440_870=float(row['440-870nm_Angstrom_Exponent']),
-                        std_340nm=float(row['STD_340nm']),
-                        std_380nm=float(row['STD_380nm']),
-                        std_440nm=float(row['STD_440nm']),
-                        std_500nm=float(row['STD_500nm']),
-                        std_675nm=float(row['STD_675nm']),
-                        std_870nm=float(row['STD_870nm']),
-                        std_1020nm=float(row['STD_1020nm']),
-                        std_1640nm=float(row['STD_1640nm']),
-                        std_water_vapor=float(row['STD_Water_Vapor(cm)']),
-                        std_angstrom_exponent_440_870=float(row['STD_440-870nm_Angstrom_Exponent']),
-                        num_observations=int(row['Number_of_Observations']),
-                        last_processing_date=last_processing_date,
-                        aeronet_number=int(row['AERONET_Number']),
-                        microtops_number=int(row['Microtops_Number']))
-                else:
-                    print("NO ITEMS IN DB")
-                # print(site_measurements_list)
+                    # date = datetime.strptime(date_str + ' ' + time_str, '%d:%m:%Y %H:%M:%S')
+                    last_processing = row['Last_Processing_Date(dd:mm:yyyy)'].split(':')
+                    last_processing_date = f'{last_processing[2]}-{last_processing[1]}-{last_processing[0]}'
 
-            # Do something with the value...
+                    row_floats = ['Air Mass', 'AOD_340nm', 'AOD_380nm', 'AOD_440nm', 'AOD_500nm', 'AOD_675nm',
+                                  'AOD_870nm',
+                                  'AOD_1020nm', 'AOD_1640nm', 'Water Vapor(cm)', 'STD_340nm', 'STD_380nm', 'STD_440nm',
+                                  'STD_500nm', 'STD_675nm', 'STD_870nm', 'STD_1020nm', 'STD_1640nm',
+                                  'STD_Water_Vapor(cm)',
+                                  'Longitude', 'Latitude']
+
+                    data_validated = cls.validate_data(row_floats, row, float)
+                    print(data_validated)
+                    if data_validated:
+                        # print("OBJECT PUT INTO DB")
+                        site_obj, created = Site.objects.get_or_create(name=site, description='')
+                        model_classes[filetype].objects.get_or_create(
+                            site=site_obj,
+                            date=date,
+                            time=row['Time(hh:mm:ss)'],
+                            air_mass=float(row['Air Mass']),
+                            latlng=latlng,
+                            aod_340nm=float(row['AOD_340nm']),
+                            aod_380nm=float(row['AOD_380nm']),
+                            aod_440nm=float(row['AOD_440nm']),
+                            aod_500nm=float(row['AOD_500nm']),
+                            aod_675nm=float(row['AOD_675nm']),
+                            aod_870nm=float(row['AOD_870nm']),
+                            aod_1020nm=float(row['AOD_1020nm']),
+                            aod_1640nm=float(row['AOD_1640nm']),
+                            water_vapor=float(row['Water Vapor(cm)']),
+                            angstrom_exponent_440_870=float(row['440-870nm_Angstrom_Exponent']),
+                            std_340nm=float(row['STD_340nm']),
+                            std_380nm=float(row['STD_380nm']),
+                            std_440nm=float(row['STD_440nm']),
+                            std_500nm=float(row['STD_500nm']),
+                            std_675nm=float(row['STD_675nm']),
+                            std_870nm=float(row['STD_870nm']),
+                            std_1020nm=float(row['STD_1020nm']),
+                            std_1640nm=float(row['STD_1640nm']),
+                            std_water_vapor=float(row['STD_Water_Vapor(cm)']),
+                            std_angstrom_exponent_440_870=float(row['STD_440-870nm_Angstrom_Exponent']),
+                            num_observations=int(row['Number_of_Observations']),
+                            last_processing_date=last_processing_date,
+                            aeronet_number=int(row['AERONET_Number']),
+                            microtops_number=int(row['Microtops_Number']))
+                    else:
+                        print("NO ITEMS IN DB")
+                except Exception as e:
+                    print("Error on ", index)
+                    print(row)
+                    print(e)
+
             # print(model)
 
     def process_file(self, args):
+
         member = args[0]
         lev_file = args[1]
         file_name = args[2]
         file_type = args[3]
-        site = re.sub(r'[_-]\d+', '', file_name.split('/')[1])[:-1]
+        print('FILENAME: ',file_name)
+        site = ''
+        try:
+            site = re.sub(r'[_-]\d+.*$', '', file_name)
+        except Exception as e:
+            print("Site Name change error occured", e)
+        print("SITE: ", site)
         chunk_size = 50
         # version, name_file_type, disclaimer, authors_contact, headers = lines[:5]
         # with open(lev_file, 'r', encoding='ISO-8859-1') as f:
-        #     next(f)  # skip the first 4 rows (header)
-        reader = pd.read_csv(lev_file, nrows=chunk_size, skiprows=4, header=0, chunksize=chunk_size,
+        # #     next(f)  # skip the first 4 rows (header)
+        # print("LEV FILE", lev_file)
+        reader = pd.read_csv(lev_file, nrows=chunk_size, skiprows=5, header=None, chunksize=chunk_size,
                              encoding='latin-1')
-        # for row in reader:
-        # print(row)
+        # # for row in reader:
+        # # print(row)
         with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
             futures = [executor.submit(self.process_chunk, chunk, file_type, site, file_name) for chunk in reader]
             concurrent.futures.wait(futures)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             # print("HELLOW WORLD")
         # print(start_index)
         # if file_type in format_one:
@@ -361,102 +395,130 @@ class Command(BaseCommand):
             'daily.lev20',
 
         ]
-        # Download the file from the static URL
-        url = 'https://aeronet.gsfc.nasa.gov/new_web/All_MAN_Data_V3.tar.gz'
-        response = requests.get(url)
-        tar_contents = response.content
-        # Extract the contents of the .tar.gz file
-        with tarfile.open(fileobj=io.BytesIO(tar_contents)) as tar:
-            # Process each CSV file in parallel using a thread pool
-            with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
-                # Submit the CSV files to the thread pool for processing
-                futures = []
-                for member in tar.getmembers():
-                    if member.isfile() and member.name.endswith(file_endings[0]):
-                        file_name = member.name[:-len(file_endings[0])]
-                        print(f"Submitting file {file_name} to thread pool")
-                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[0])))
-                    if member.isfile() and member.name.endswith(file_endings[1]):
-                        file_name = member.name[:-len(file_endings[1])]
-                        print(f"Submitting file {file_name} to thread pool")
-                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[1])))
-                    if member.isfile() and member.name.endswith(file_endings[2]):
-                        file_name = member.name[:-len(file_endings[2])]
-                        print(f"Submitting file {file_name} to thread pool")
-                        futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[2])))
-                    # if member.isfile() and member.name.endswith(file_endings[3]):
-                    #     lev_file = tar.extractfile(member)
-                    #
-                    #     file_name = member.name[:-len(file_endings[3])]
-                    #     print(f"Submitting file {file_name} to thread pool")
-                    #     futures.append(
-                    #         executor.submit(self.process_file, (member, lev_file, file_name, file_endings[3])))
-                    # if member.isfile() and member.name.endswith(file_endings[4]):
-                    #     lev_file = tar.extractfile(member)
-                    #
-                    #     file_name = member.name[:-len(file_endings[4])]
-                    #     print(f"Submitting file {file_name} to thread pool")
-                    #     futures.append(
-                    #         executor.submit(self.process_file, (member, lev_file, file_name, file_endings[4])))
-                    if member.isfile() and member.name.endswith(file_endings[5]):
-                        lev_file = tar.extractfile(member)
+        # # Download the file from the static URL
+        # url = 'https://aeronet.gsfc.nasa.gov/new_web/All_MAN_Data_V3.tar.gz'
+        # response = requests.get(url)
+        # tar_contents = response.content
+        # # Extract the contents of the .tar.gz file
+        # with tarfile.open(fileobj=io.BytesIO(tar_contents), mode='r:gz') as tar:
+        #     tar.extractall(path=r'D:\DevOps\Active\mandatabase\SRC')
+        #     print("Download Completed")
 
-                        file_name = member.name[:-len(file_endings[5])]
+        # Read the folder contents
+        folder_path = r'D:\DevOps\Active\mandatabase\SRC'
+        with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
+            futures = []
+            for root, dirs, files in os.walk(folder_path):
+                for file_name in files:
+                    print(file_name)
+                    if file_name.endswith(file_endings[5]):
+                        file_path = os.path.join(root, file_name)
+                        file_name = file_name[:-len(file_endings[5])]
                         print(f"Submitting file {file_name} to thread pool")
                         futures.append(
-                            executor.submit(self.process_file, (member, lev_file, file_name, file_endings[5])))
-                    if member.isfile() and member.name.endswith(file_endings[6]):
-                        lev_file = tar.extractfile(member)
-                        file_name = member.name[:-len(file_endings[6])]
+                            executor.submit(self.process_file, (file_path, file_path, file_name, file_endings[5])))
+
+                    elif file_name.endswith(file_endings[6]):
+                        file_path = os.path.join(root, file_name)
+                        file_name = file_name[:-len(file_endings[6])]
                         print(f"Submitting file {file_name} to thread pool")
                         futures.append(
-                            executor.submit(self.process_file, (member, lev_file, file_name, file_endings[6])))
-                # Wait for all futures to finish
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        # print("STARTING")
-                        future.result()
-                        # print("STOPPING")
-                    except Exception as exc:
-                        print(f"Exception occurred: {exc}")
+                            executor.submit(self.process_file, (file_path, file_path, file_name, file_endings[6])))
+            # Wait for all futures to finish
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as exc:
+                    print(f"Exception occurred: {exc}")
+        # with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
+        #     # Submit the CSV files to the thread pool for processing
+        #     futures = []
+        #     for member in tar.getmembers():
+        #         # if member.isfile() and member.name.endswith(file_endings[0]):
+        #         #     file_name = member.name[:-len(file_endings[0])]
+        #         #     print(f"Submitting file {file_name} to thread pool")
+        #         #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[0])))
+        #         # if member.isfile() and member.name.endswith(file_endings[1]):
+        #         #     file_name = member.name[:-len(file_endings[1])]
+        #         #     print(f"Submitting file {file_name} to thread pool")
+        #         #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[1])))
+        #         # if member.isfile() and member.name.endswith(file_endings[2]):
+        #         #     file_name = member.name[:-len(file_endings[2])]
+        #         #     print(f"Submitting file {file_name} to thread pool")
+        #         #     futures.append(executor.submit(self.process_lev, (member, tar, file_name, file_endings[2])))
+        #         # if member.isfile() and member.name.endswith(file_endings[3]):
+        #         #     lev_file = tar.extractfile(member)
+        #         #
+        #         #     file_name = member.name[:-len(file_endings[3])]
+        #         #     print(f"Submitting file {file_name} to thread pool")
+        #         #     futures.append(
+        #         #         executor.submit(self.process_file, (member, lev_file, file_name, file_endings[3])))
+        #         # if member.isfile() and member.name.endswith(file_endings[4]):
+        #         #     lev_file = tar.extractfile(member)
+        #         #
+        #         #     file_name = member.name[:-len(file_endings[4])]
+        #         #     print(f"Submitting file {file_name} to thread pool")
+        #         #     futures.append(
+        #         #         executor.submit(self.process_file, (member, lev_file, file_name, file_endings[4])))
+        #         if member.isfile() and member.name.endswith(file_endings[5]):
+        #             lev_file = tar.extractfile(member)
+        #
+        #             file_name = member.name[:-len(file_endings[5])]
+        #             print(f"Submitting file {file_name} to thread pool")
+        #             futures.append(
+        #                 executor.submit(self.process_file, (member, lev_file, file_name, file_endings[5])))
+        #         if member.isfile() and member.name.endswith(file_endings[6]):
+        #             lev_file = tar.extractfile(member)
+        #             file_name = member.name[:-len(file_endings[6])]
+        #             print(f"Submitting file {file_name} to thread pool")
+        #             futures.append(
+        #                 executor.submit(self.process_file, (member, lev_file, file_name, file_endings[6])))
+        #     # Wait for all futures to finish
+        #     for future in concurrent.futures.as_completed(futures):
+        #         try:
+        #             # print("STARTING")
+        #             future.result()
+        #             # print("STOPPING")
+        #         except Exception as exc:
+        #             print(f"Exception occurred: {exc}")
 
-        # pool.close()
-        # pool.join()  # print(line)
-        # file_name = member.name.split('/')[-1]
-        # Get or create the Site object for the current site name
-        #                 site, created = Site.objects.get_or_create(name=site_name)
-        #                 # Create a new MyModel instance with the Site object
-        #                 obj, created = Site.objects.get_or_create(name=site_name, description="")
-        #                 if not created:
-        #
-        # SiteMeasurementsAllPoints10.objects.get_or_create(site=site_name, file_name=file_name, file_content=line)
-        #
-        #         if member.isfile() and member.name.endswith('.lev15'):
-        #             csv_file = tar.extractfile(member)
-        #             csv_contents = csv_file.read()
-        #             # Split the CSV contents into lines
-        #             lines = csv_contents.decode('utf-8').splitlines()
-        #             # Get the site name from the CSV file name
-        #             site_name = member.name.split('/')[0]
-        #             # Create a new MyModel instance for each line in the CSV file
-        #             for line in lines:
-        #                 file_name = member.name.split('/')[-1]
-        #                 # Get or create the Site object for the current site name
-        #                 site, created = Site.objects.get_or_create(name=site_name)
-        #                 # Create a new MyModel instance with the Site object
-        #                 MyModel.objects.create(site=site, file_name=file_name, file_content=line)
-        #
-        #         if member.isfile() and member.name.endswith('.lev20'):
-        #             csv_file = tar.extractfile(member)
-        #             csv_contents = csv_file.read()
-        #             # Split the CSV contents into lines
-        #             lines = csv_contents.decode('utf-8').splitlines()
-        #             # Get the site name from the CSV file name
-        #             site_name = member.name.split('/')[0]
-        #             # Create a new MyModel instance for each line in the CSV file
-        #             for line in lines:
-        #                 file_name = member.name.split('/')[-1]
-        #                 # Get or create the Site object for the current site name
-        #                 site, created = Site.objects.get_or_create(name=site_name)
-        #                 # Create a new MyModel instance with the Site object
-        #                 MyModel.objects.create(site=site, file_name=file_name, file_content=line)
+    # pool.close()
+    # pool.join()  # print(line)
+    # file_name = member.name.split('/')[-1]
+    # Get or create the Site object for the current site name
+    #                 site, created = Site.objects.get_or_create(name=site_name)
+    #                 # Create a new MyModel instance with the Site object
+    #                 obj, created = Site.objects.get_or_create(name=site_name, description="")
+    #                 if not created:
+    #
+    # SiteMeasurementsAllPoints10.objects.get_or_create(site=site_name, file_name=file_name, file_content=line)
+    #
+    #         if member.isfile() and member.name.endswith('.lev15'):
+    #             csv_file = tar.extractfile(member)
+    #             csv_contents = csv_file.read()
+    #             # Split the CSV contents into lines
+    #             lines = csv_contents.decode('utf-8').splitlines()
+    #             # Get the site name from the CSV file name
+    #             site_name = member.name.split('/')[0]
+    #             # Create a new MyModel instance for each line in the CSV file
+    #             for line in lines:
+    #                 file_name = member.name.split('/')[-1]
+    #                 # Get or create the Site object for the current site name
+    #                 site, created = Site.objects.get_or_create(name=site_name)
+    #                 # Create a new MyModel instance with the Site object
+    #                 MyModel.objects.create(site=site, file_name=file_name, file_content=line)
+    #
+    #         if member.isfile() and member.name.endswith('.lev20'):
+    #             csv_file = tar.extractfile(member)
+    #             csv_contents = csv_file.read()
+    #             # Split the CSV contents into lines
+    #             lines = csv_contents.decode('utf-8').splitlines()
+    #             # Get the site name from the CSV file name
+    #             site_name = member.name.split('/')[0]
+    #             # Create a new MyModel instance for each line in the CSV file
+    #             for line in lines:
+    #                 file_name = member.name.split('/')[-1]
+    #                 # Get or create the Site object for the current site name
+    #                 site, created = Site.objects.get_or_create(name=site_name)
+    #                 # Create a new MyModel instance with the Site object
+    #                 MyModel.objects.create(site=site, file_name=file_name, file_content=line)
