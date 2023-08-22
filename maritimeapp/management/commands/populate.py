@@ -38,15 +38,16 @@ class Command(BaseCommand):
     help = 'Download and process file from static URL'
 
     @classmethod
-    def validate_data(cls, row_fields, row, type):
-        if type is float:
+    def validate_data(cls, row_fields, row, type_of_data):
+        if type_of_data is float:
             for field_name in row_fields:
                 field_value = getattr(row, field_name)
                 if not isinstance(field_value, float) and not isinstance(field_value, np.float64):
                     raise ValidationError(f'{field_name} must be a number')
-                else:
-                    print("RAN SUCCESSFULLY")
-                    return True
+                elif np.isnan(field_value):
+                    raise ValidationError(f'{field_name} cannot be NaN')
+            print("RAN SUCCESSFULLY")
+            return True
 
     @classmethod
     def process_chunk(cls, chunk, filetype, site, file):
@@ -63,8 +64,8 @@ class Command(BaseCommand):
             model_classes = {
                 format_two[0]: SiteMeasurementsDaily15,
                 format_two[1]: SiteMeasurementsDaily20,
-                # format_two[2]: SiteMeasurementsSeries15,
-                # format_two[3]: SiteMeasurementsSeries20,
+                format_two[2]: SiteMeasurementsSeries15,
+                format_two[3]: SiteMeasurementsSeries20,
             }
             model = model_classes[filetype]
             print(model, site)
@@ -79,6 +80,7 @@ class Command(BaseCommand):
             for index, row in chunk.iterrows():
                 print(row)
                 try:
+                    full_file_name = file+filetype
 
                     latlng = Point(float(row['Longitude']), float(row['Latitude']))
                     date_str = row['Date(dd:mm:yyyy)'].split(':')
@@ -88,20 +90,21 @@ class Command(BaseCommand):
                     last_processing = row['Last_Processing_Date(dd:mm:yyyy)'].split(':')
                     last_processing_date = f'{last_processing[2]}-{last_processing[1]}-{last_processing[0]}'
 
-                    row_floats = ['Air Mass', 'AOD_340nm', 'AOD_380nm', 'AOD_440nm', 'AOD_500nm', 'AOD_675nm',
-                                  'AOD_870nm',
-                                  'AOD_1020nm', 'AOD_1640nm', 'Water Vapor(cm)', 'STD_340nm', 'STD_380nm', 'STD_440nm',
-                                  'STD_500nm', 'STD_675nm', 'STD_870nm', 'STD_1020nm', 'STD_1640nm',
-                                  'STD_Water_Vapor(cm)',
-                                  'Longitude', 'Latitude']
+                    row_floats = ['Air Mass', 'Latitude', 'Longitude', 'AOD_340nm',
+                                  'AOD_380nm', 'AOD_440nm', 'AOD_500nm', 'AOD_675nm', 'AOD_870nm', 'AOD_1020nm',
+                                  'AOD_1640nm', 'Water Vapor(cm)', '440-870nm_Angstrom_Exponent', 'STD_340nm',
+                                  'STD_380nm', 'STD_440nm', 'STD_500nm', 'STD_675nm', 'STD_870nm', 'STD_1020nm',
+                                  'STD_1640nm', 'STD_Water_Vapor(cm)', 'STD_440-870nm_Angstrom_Exponent']
 
                     data_validated = cls.validate_data(row_floats, row, float)
                     print(data_validated)
                     if data_validated:
                         # print("OBJECT PUT INTO DB")
+
                         site_obj, created = Site.objects.get_or_create(name=site, description='')
                         model_classes[filetype].objects.get_or_create(
                             site=site_obj,
+                            filename=full_file_name,
                             date=date,
                             time=row['Time(hh:mm:ss)'],
                             air_mass=float(row['Air Mass']),
@@ -145,10 +148,13 @@ class Command(BaseCommand):
         lev_file = args[1]
         file_name = args[2]
         file_type = args[3]
-        print('FILENAME: ',file_name)
+        print('FILENAME: ', file_name)
         site = ''
         try:
-            site = re.sub(r'[_-]\d+.*$', '', file_name)
+            site = file_name
+            if site.endswith('_'):
+                site = site.rstrip('_')
+
         except Exception as e:
             print("Site Name change error occured", e)
         print("SITE: ", site)
@@ -164,26 +170,6 @@ class Command(BaseCommand):
         with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
             futures = [executor.submit(self.process_chunk, chunk, file_type, site, file_name) for chunk in reader]
             concurrent.futures.wait(futures)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             # print("HELLOW WORLD")
         # print(start_index)
@@ -411,19 +397,26 @@ class Command(BaseCommand):
             for root, dirs, files in os.walk(folder_path):
                 for file_name in files:
                     print(file_name)
-                    if file_name.endswith(file_endings[5]):
+                    if file_name.endswith(file_endings[4]):
                         file_path = os.path.join(root, file_name)
                         file_name = file_name[:-len(file_endings[5])]
                         print(f"Submitting file {file_name} to thread pool")
                         futures.append(
                             executor.submit(self.process_file, (file_path, file_path, file_name, file_endings[5])))
 
-                    elif file_name.endswith(file_endings[6]):
-                        file_path = os.path.join(root, file_name)
-                        file_name = file_name[:-len(file_endings[6])]
-                        print(f"Submitting file {file_name} to thread pool")
-                        futures.append(
-                            executor.submit(self.process_file, (file_path, file_path, file_name, file_endings[6])))
+                    # if file_name.endswith(file_endings[5]):
+                    #     file_path = os.path.join(root, file_name)
+                    #     file_name = file_name[:-len(file_endings[5])]
+                    #     print(f"Submitting file {file_name} to thread pool")
+                    #     futures.append(
+                    #         executor.submit(self.process_file, (file_path, file_path, file_name, file_endings[5])))
+                    #
+                    # elif file_name.endswith(file_endings[6]):
+                    #     file_path = os.path.join(root, file_name)
+                    #     file_name = file_name[:-len(file_endings[6])]
+                    #     print(f"Submitting file {file_name} to thread pool")
+                    #     futures.append(
+                    #         executor.submit(self.process_file, (file_path, file_path, file_name, file_endings[6])))
             # Wait for all futures to finish
             for future in concurrent.futures.as_completed(futures):
                 try:

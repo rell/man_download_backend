@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.geos import Point
+from django.contrib.postgres.fields import ArrayField
 
 
 class Site(models.Model):
@@ -10,6 +11,7 @@ class Site(models.Model):
 
 class SiteMeasurementsDaily15(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    filename = models.CharField(max_length=255, default='')
     date = models.DateField(db_index=True)
     time = models.TimeField(db_index=False)
     air_mass = models.FloatField(default=-999.0)
@@ -42,6 +44,7 @@ class SiteMeasurementsDaily15(models.Model):
 
 class SiteMeasurementsDaily20(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    filename = models.CharField(max_length=255, default='')
     date = models.DateField(db_index=True)
     time = models.TimeField(db_index=False)
     air_mass = models.FloatField(default=-999.0)
@@ -74,16 +77,31 @@ class SiteMeasurementsDaily20(models.Model):
 
 class SiteMeasurementsAllPoints10(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField(db_index=True)
     time = models.TimeField(db_index=True)
     filename = models.CharField(max_length=255, default='')
+    dates = ArrayField(models.DateField(), blank=True, default=list)
 
+    def add_date(self, date):
+        self.dates.append(date)
+        self.save()
+
+    def remove_date(self, date):
+        self.dates.remove(date)
+        self.save()
 
 class SiteMeasurementsAllPoints15(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField(db_index=True)
     time = models.TimeField(db_index=True)
     filename = models.CharField(max_length=255, default='')
+    dates = ArrayField(models.DateField(), blank=True, default=list)
+
+    def add_date(self, date):
+        self.dates.append(date)
+        self.save()
+
+    def remove_date(self, date):
+        self.dates.remove(date)
+        self.save()
 
 
 class SiteMeasurementsAllPoints20(models.Model):
@@ -91,20 +109,44 @@ class SiteMeasurementsAllPoints20(models.Model):
     date = models.DateField(db_index=True)
     time = models.TimeField(db_index=True)
     filename = models.CharField(max_length=255, default='')
+    dates = ArrayField(models.DateField(), blank=True, default=list)
+
+    def add_date(self, date):
+        self.dates.append(date)
+        self.save()
+
+    def remove_date(self, date):
+        self.dates.remove(date)
+        self.save()
 
 
 class SiteMeasurementsSeries20(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField(db_index=True)
     time = models.TimeField(db_index=True)
     filename = models.CharField(max_length=255, default='')
+    dates = ArrayField(models.DateField(), blank=True, default=list)
 
+    def add_date(self, date):
+        self.dates.append(date)
+        self.save()
+
+    def remove_date(self, date):
+        self.dates.remove(date)
+        self.save()
 
 class SiteMeasurementsSeries15(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    date = models.DateField(db_index=True)
     time = models.TimeField(db_index=True)
     filename = models.CharField(max_length=255, default='')
+    dates = ArrayField(models.DateField(), blank=True, default=list)
+
+    def add_date(self, date):
+        self.dates.append(date)
+        self.save()
+
+    def remove_date(self, date):
+        self.dates.remove(date)
+        self.save()
 
 # OLD MODEL SETUP
 #
