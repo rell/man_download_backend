@@ -15,6 +15,7 @@ import os
 import tarfile
 from django.http import FileResponse, HttpResponse
 import shutil
+from starlette.background import BackgroundTask
 
 from django.core.paginator import Paginator
 from django.http import JsonResponse
@@ -379,73 +380,55 @@ def download_data(request):
     sites = request.GET.get('sites')
     if sites is not None:
         sites = ast.literal_eval(sites)
+
+    # TODO: Eventually add optional date filtering of sets
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
-
-    print(sites)
-    print(type(sites))
     timestamp = str(int(time.time()))
 
     source_dir = r'D:/DevOps/Active/mandatabase/SRC'  # Path to the source directory
     temp_base_dir = r'D:/DevOps/Active/mandatabase/temp'  # Path to the temporary directory
     unique_temp_folder = timestamp + '_MAN_DATA'
-    tar_file_name = unique_temp_folder+'.tar.gz'  # Name for the tar archive
+    tar_file_name = unique_temp_folder + '.tar.gz'  # Name for the tar archive
     temp_dir = os.path.join(temp_base_dir, unique_temp_folder)
+    save_path = os.path.join(temp_base_dir, tar_file_name)
     # modified_file_path = os.path.join(temp_dir, 'modified_file.txt')  # Path to the modified file
     keep_files = ['data_usage_policy']
     try:
-        # # Create the temporary directory
-        # os.makedirs(temp_dir, exist_ok=True)
+
+        def cleanup():
+            shutil.rmtree(temp_dir)
+            os.remove(save_path)
 
         # Copy the contents of source_dir to temp_dir
         for root, dirs, files in os.walk(source_dir):
             for file in files:
                 if any(site in file for site in sites) and sites is not None or any(kf in file for kf in keep_files):
-                    print(file)
                     source_file = os.path.join(root, file)
                     dest_file = os.path.join(temp_dir, os.path.relpath(source_file, source_dir))
                     os.makedirs(os.path.dirname(dest_file), exist_ok=True)
                     shutil.copy2(source_file, dest_file)
 
-        print('Contents:', temp_dir)
+        response = create_tar_file(temp_dir, save_path, tar_file_name)
+        # round = BackgroundTask(cleanup)
+        return response
 
-        save_path = os.path.join(temp_dir, tar_file_name)
-        # Create the tar archive
-        with tarfile.open(save_path, 'w') as tar:
-            print("FILE BEING READ")
-            tar.add(temp_dir, arcname=os.path.basename(temp_dir))
-
-        # Open the tar archive as a binary file
-        with open(save_path, 'rb') as file:
-            print("ERROR OCCURED HERE")
-            return FileResponse(file, as_attachment=True, filename=tar_file_name)
-            # print(response)
-
-        # response_content = response
-
-        # Remove the temporary directory and tar archive file
-        # shutil.rmtree(temp_dir)
-        # os.remove(tar_file_name)
-
-        # return response
-
-    except Exception as e:
-        print(e)
-        # Handle any exceptions that occurred during the process
-        # ...
-
-        # Clean up the temporary directory and tar archive file in case of an error
+    except Exception:
         try:
-            pass
-            # shutil.rmtree(temp_dir)
+            shutil.rmtree(temp_dir)
         except Exception:
-            print()
+            pass
 
         try:
-            pass
-            # os.remove(tar_file_name)
+            os.remove(save_path)
         except Exception:
             pass
 
         # Return an error response
         return HttpResponse('An error occurred while processing the request.', status=500)
+
+
+def create_tar_file(temp_dir, save_path, tar_file_name):
+    with tarfile.open(save_path, 'w:gz') as tar:
+        tar.add(temp_dir, arcname=os.path.basename(temp_dir))
+    return FileResponse(open(save_path, 'rb'), as_attachment=True, filename=tar_file_name)
