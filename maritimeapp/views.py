@@ -1,7 +1,8 @@
 import math
 import ast
-
+import json
 import time
+from django.middleware.csrf import get_token
 
 from rest_framework import generics, status
 from rest_framework.views import APIView
@@ -23,7 +24,8 @@ from django.db.models import Q
 from datetime import datetime
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics
-
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render
 from django.shortcuts import get_object_or_404
 from django.views.generic import ListView
@@ -31,35 +33,6 @@ from .models import SiteMeasurementsAllPoints10, SiteMeasurementsAllPoints15, Si
     SiteMeasurementsDaily15, SiteMeasurementsDaily20, SiteMeasurementsSeries15, SiteMeasurementsSeries20
 
 from .serializers import *
-
-
-@api_view(['GET'])
-def apiOverview(request):
-    # TODO: UPDATE TO CURRENT URLS
-    api_urls = {
-        # 'List': '/site-list/',
-        # 'Detail View': 'site-detail/<str:pk>',
-        # 'Create': '/site-create/',
-        # 'Update': '/site-update/<str:pk>',
-        # 'Delete': '/site-delete/<str:pk>',
-    }
-    return Response(api_urls)
-
-
-@api_view(['GET'])
-def measurementsOverview(request):
-    urls = {
-        'required params': 'type, level, aod',
-        "all - 10": "/measurements/?reading=aod&level=10&type=all&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "all - 15": "/measurements/?reading=aod&level=15&type=all&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "all - 20": "/measurements/?reading=aod&level=20&type=all&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "daily - 15": "/measurements/?reading=aod&level=15&type=daily&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "daily - 20": "/measurements/?reading=aod&level=20&type=daily&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "series - 15": "/measurements/?reading=aod&level=15&type=series&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "series - 20": "/measurements/?reading=aod&level=20&type=series&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "box latlng example - Atlantic Ocean": "/measurements/?reading=aod&level=20&type=series&min_lat=0&min_lng=-80&max_lat=60&max_lng=-20"
-    }
-    return Response(urls)
 
 
 class CreateDeleteMixin:
@@ -113,25 +86,37 @@ class SitesAtDate(generics.ListCreateAPIView):
     queryset = SiteMeasurementsDaily15.objects.all()
 
     def get_queryset(self):
-        queryset = SiteMeasurementsDaily15.objects.all()
+        # queryset = SiteMeasurementsDaily15.objects.all()
+        [start_date, end_date, min_lat, min_lng, max_lat, max_lng] = [None] * 6
 
-        start_date = self.request.GET.get('start_date')
-        end_date = self.request.GET.get('end_date')
-        min_lat = self.request.GET.get('min_lat')
-        max_lat = self.request.GET.get('max_lat')
-        min_lng = self.request.GET.get('min_lng')
-        max_lng = self.request.GET.get('max_lng')
+        if self.request.GET.get('start_date') != 'null' and self.request.GET.get('start_date'):
+            start_date = self.request.GET.get('start_date')
 
-        if start_date and end_date:
-            queryset = SiteMeasurementsDaily15.objects.filter(date__gte=start_date, date__lte=end_date).distinct()
+        if self.request.GET.get('end_date') != 'null' and self.request.GET.get('end_date'):
+            end_date = self.request.GET.get('end_date')
+
+        if self.request.GET.get('min_lat') != 'null' and self.request.GET.get('min_lat'):
+            min_lat = ast.literal_eval(self.request.GET.get('min_lat'))
+
+        if self.request.GET.get('max_lat') != 'null' and self.request.GET.get('max_lat'):
+            max_lat = ast.literal_eval(self.request.GET.get('max_lat'))
+
+        if self.request.GET.get('min_lng') != 'null' and self.request.GET.get('min_lng'):
+            min_lng = ast.literal_eval(self.request.GET.get('min_lng'))
+
+        if self.request.GET.get('max_lng') != 'null' and self.request.GET.get('max_lng'):
+            max_lng = ast.literal_eval(self.request.GET.get('max_lng'))
+
+        if all([start_date, end_date]):
+            self.queryset = self.queryset.filter(date__gte=start_date, date__lte=end_date).distinct()
 
         elif start_date:
-            queryset = SiteMeasurementsDaily15.objects.filter(date__gte=start_date).distinct()
-        elif end_date:
-            queryset = SiteMeasurementsDaily15.objects.filter(date__lte=end_date).distinct()
+            self.queryset = self.queryset.filter(date__gte=start_date).distinct()
 
-        elif all([min_lat, max_lat, min_lng, max_lng, start_date, end_date]) and all(
-                [min_lat, max_lat, min_lng, max_lng, start_date, end_date]) != 'null' or '':
+        elif end_date:
+            self.queryset = self.queryset.filter(date__lte=end_date).distinct()
+
+        elif all([min_lat, max_lat, min_lng, max_lng, start_date, end_date]):
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
             min_point = Point(float(min_lng), float(min_lat))
@@ -140,39 +125,35 @@ class SitesAtDate(generics.ListCreateAPIView):
 
             self.queryset = self.queryset.filter(date__range=[start_date, end_date], latlng__within=polygon)
             count = self.queryset.filter(date__range=[start_date, end_date], latlng__within=polygon).count()
-            print(count)
 
-        elif all([min_lat, max_lat, min_lng, max_lng, start_date]) and all(
-                [min_lat, max_lat, min_lng, max_lng, start_date]) != 'null' or '':
+        elif all([min_lat, max_lat, min_lng, max_lng, start_date]):
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
             min_point = Point(float(min_lng), float(min_lat))
             max_point = Point(float(max_lng), float(max_lat))
             polygon = Polygon.from_bbox((min_point.x, min_point.y, max_point.x, max_point.y))
             self.queryset = self.queryset.filter(date__gte=start_date, latlng__within=polygon)
 
-        elif all([min_lat, max_lat, min_lng, max_lng, end_date]) and all(
-                [min_lat, max_lat, min_lng, max_lng, end_date]) != 'null' or '':
+        elif all([min_lat, max_lat, min_lng, max_lng, end_date]):
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
             min_point = Point(float(min_lng), float(min_lat))
             max_point = Point(float(max_lng), float(max_lat))
             polygon = Polygon.from_bbox((min_point.x, min_point.y, max_point.x, max_point.y))
             self.queryset = self.queryset.filter(date__lte=end_date, latlng__within=polygon)
 
-        elif all([min_lat, max_lat, min_lng, max_lng]) and all([min_lat, max_lat, min_lng, max_lng]) != 'null' or '':
+        elif all([min_lat, max_lat, min_lng, max_lng]):
             min_point = Point(float(min_lng), float(min_lat))
             print(min_point)
             max_point = Point(float(max_lng), float(max_lat))
             polygon = Polygon.from_bbox((min_point.x, min_point.y, max_point.x, max_point.y))
 
-            queryset = SiteMeasurementsDaily15.objects.filter(
+            self.queryset = self.queryset.filter(
                 latlng__within=polygon
             )
 
-
         else:
-            queryset = SitesList.queryset
+            self.queryset = SitesList.get_queryset(self)
 
-        return queryset
+        return self.queryset
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -376,56 +357,114 @@ class SiteDelete(generics.DestroyAPIView):
         return super().destroy(request, *args, **kwargs)
 
 
+@api_view(['GET'])
+def apiOverview(request):
+    # TODO: UPDATE TO CURRENT URLS
+    api_urls = {
+        # 'List': '/site-list/',
+        # 'Detail View': 'site-detail/<str:pk>',
+        # 'Create': '/site-create/',
+        # 'Update': '/site-update/<str:pk>',
+        # 'Delete': '/site-delete/<str:pk>',
+    }
+    return Response(api_urls)
+
+
+@api_view(['GET'])
+def measurementsOverview(request):
+    urls = {
+        'required params': 'type, level, aod',
+        "all - 10": "/measurements/?reading=aod&level=10&type=all&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
+        "all - 15": "/measurements/?reading=aod&level=15&type=all&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
+        "all - 20": "/measurements/?reading=aod&level=20&type=all&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
+        "daily - 15": "/measurements/?reading=aod&level=15&type=daily&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
+        "daily - 20": "/measurements/?reading=aod&level=20&type=daily&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
+        "series - 15": "/measurements/?reading=aod&level=15&type=series&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
+        "series - 20": "/measurements/?reading=aod&level=20&type=series&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
+        "box latlng example - Atlantic Ocean": "/measurements/?reading=aod&level=20&type=series&min_lat=0&min_lng=-80&max_lat=60&max_lng=-20"
+    }
+    return Response(urls)
+
+
+def get_csrf_token(request):
+    csrf_token = get_token(request)
+    return JsonResponse({'csrfToken': csrf_token})
+
+
+@csrf_exempt
 def download_data(request):
-    sites = request.GET.get('sites')
-    if sites is not None:
-        sites = ast.literal_eval(sites)
-
-    # TODO: Eventually add optional date filtering of sets
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
-    timestamp = str(int(time.time()))
-
-    source_dir = r'D:/DevOps/Active/mandatabase/SRC'  # Path to the source directory
-    temp_base_dir = r'D:/DevOps/Active/mandatabase/temp'  # Path to the temporary directory
-    unique_temp_folder = timestamp + '_MAN_DATA'
-    tar_file_name = unique_temp_folder + '.tar.gz'  # Name for the tar archive
-    temp_dir = os.path.join(temp_base_dir, unique_temp_folder)
-    save_path = os.path.join(temp_base_dir, tar_file_name)
-    # modified_file_path = os.path.join(temp_dir, 'modified_file.txt')  # Path to the modified file
-    keep_files = ['data_usage_policy']
-    try:
-
-        def cleanup():
-            shutil.rmtree(temp_dir)
-            os.remove(save_path)
-
-        # Copy the contents of source_dir to temp_dir
-        for root, dirs, files in os.walk(source_dir):
-            for file in files:
-                if any(site in file for site in sites) and sites is not None or any(kf in file for kf in keep_files):
-                    source_file = os.path.join(root, file)
-                    dest_file = os.path.join(temp_dir, os.path.relpath(source_file, source_dir))
-                    os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-                    shutil.copy2(source_file, dest_file)
-
-        response = create_tar_file(temp_dir, save_path, tar_file_name)
-        # round = BackgroundTask(cleanup)
-        return response
-
-    except Exception:
+    print(request.method)
+    if request.method == 'OPTIONS':
         try:
-            shutil.rmtree(temp_dir)
-        except Exception:
-            pass
+            print("HERE")
+            print(request.body.find('sites'))
+            data = json.loads(request.body.decode('utf-8'))
+            sites = data.get('sites', [])
+            print(sites)
+
+            # TODO: Process the sites variable as needed
+
+            response = HttpResponse()
+            response["Access-Control-Allow-Origin"] = "*"
+            response["Access-Control-Allow-Methods"] = 'OPTIONS, GET, HEAD, POST'  # Allow POST and OPTIONS methods
+            response["Access-Control-Allow-Headers"] = "*"
+            # csrf_token = 'my_custom_csrf_token_value'
+            # response.set_cookie('X-CSRFToken', csrf_token)
+            return response
+
+        except json.decoder.JSONDecodeError:
+            return HttpResponse('Invalid JSON data in the request body.')  # sites = data.get('sites', [])
+        # print(sites)
+        #
+        # response = HttpResponse()
+        # response['Access-Control-Allow-Origin'] = '*'
+        # response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        # response['Access-Control-Allow-Headers'] = 'Content-Type'
+        # return response
+    else:
+        # data = request.POST.get('sites')
+        sites = request.GET.get('sites')
+        if sites is not None:
+            sites = ast.literal_eval(sites)
+
+        # TODO: Eventually add optional date filtering of sets
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        timestamp = str(int(time.time()))
+
+        source_dir = r'D:/DevOps/Active/mandatabase/SRC'  # Path to the source directory
+        temp_base_dir = r'D:/DevOps/Active/mandatabase/temp'  # Path to the temporary directory
+        unique_temp_folder = timestamp + '_MAN_DATA'
+        tar_file_name = unique_temp_folder + '.tar.gz'  # Name for the tar archive
+        temp_dir = os.path.join(temp_base_dir, unique_temp_folder)
+        save_path = os.path.join(temp_base_dir, tar_file_name)
+        keep_files = ['data_usage_policy']
 
         try:
-            os.remove(save_path)
-        except Exception:
-            pass
+            def cleanup():
+                shutil.rmtree(temp_dir)
+                os.remove(save_path)
 
-        # Return an error response
-        return HttpResponse('An error occurred while processing the request.', status=500)
+            # Copy the contents of source_dir to temp_dir
+            for root, dirs, files in os.walk(source_dir):
+                for file in files:
+                    if (sites is not None and any(site in file for site in sites)) or any(
+                            kf in file for kf in keep_files):
+                        source_file = os.path.join(root, file)
+                        dest_file = os.path.join(temp_dir, os.path.relpath(source_file, source_dir))
+                        os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+                        shutil.copy2(source_file, dest_file)
+
+            response = create_tar_file(temp_dir, save_path, tar_file_name)
+
+            return response
+
+        except Exception:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            os.remove(save_path, dir_fd=None)
+
+            # Return an error response
+            return HttpResponse('An error occurred while processing the request.')
 
 
 def create_tar_file(temp_dir, save_path, tar_file_name):

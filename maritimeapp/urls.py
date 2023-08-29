@@ -1,24 +1,27 @@
 from django.urls import path
-from . import views
+# from . import views
+from .views import download_data, SiteDelete, measurementsOverview, SitesAtDate, get_csrf_token, SitesList, apiOverview, \
+    SiteMeasurementsList
 
 urlpatterns = [
-    path('', views.apiOverview,
+    path('', apiOverview,
          name='api-overview'),
-    path('sites/', views.SitesList.as_view(),
+    path('sites/', SitesList.as_view(),
          name='sites-list'),
-    path('measurements/sites/', views.SitesAtDate.as_view(),
+    path('get-csrf-token/', get_csrf_token, name='get_csrf_token'),
+    path('measurements/sites/', SitesAtDate.as_view(),
          name='sites-at-date'),
     # path('sites/<str:name>/', SiteDetail.as_view(),
     #         name='site-detail'),
-    path('measurements/', views.SiteMeasurementsList.as_view(),
+    path('measurements/', SiteMeasurementsList.as_view(),
          name='site-measurements-daily15'),
-    path('measurements/info/', views.measurementsOverview,
+    path('measurements/info/', measurementsOverview,
          name='measurements-overview'),
     # path('sites/measurements/D15/', SiteMeasurementsDaily15ListDate.as_view(),
     #    name='measurement-list'),
-    path('sites/<str:name>/delete/', views.SiteDelete.as_view(),
+    path('sites/<str:name>/delete/', SiteDelete.as_view(),
          name='site-delete'),
 
-    path('download/', views.download_data, name='download_tar'),
+    path('download/', download_data, name='download_data'),
 
 ]
