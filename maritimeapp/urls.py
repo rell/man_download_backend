@@ -1,15 +1,16 @@
-from django.urls import path
+from django.urls import path, include
 # from . import views
-from .views import download_data, SiteDelete, measurementsOverview, SitesAtDate, get_csrf_token, SitesList, apiOverview, \
+from .views import download_data, SiteDelete, measurementsOverview, SiteQueryset, get_csrf_token, SitesList, apiOverview, \
     SiteMeasurementsList
 
-urlpatterns = [
+urlpatterns = \
+[
     path('', apiOverview,
          name='api-overview'),
     path('sites/', SitesList.as_view(),
          name='sites-list'),
     path('get-csrf-token/', get_csrf_token, name='get_csrf_token'),
-    path('measurements/sites/', SitesAtDate.as_view(),
+    path('measurements/sites/', SiteQueryset.as_view(),
          name='sites-at-date'),
     # path('sites/<str:name>/', SiteDetail.as_view(),
     #         name='site-detail'),
@@ -21,7 +22,5 @@ urlpatterns = [
     #    name='measurement-list'),
     path('sites/<str:name>/delete/', SiteDelete.as_view(),
          name='site-delete'),
-
     path('download/', download_data, name='download_data'),
-
 ]

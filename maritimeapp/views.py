@@ -1,38 +1,28 @@
-import math
 import ast
-import json
 import time
 from django.middleware.csrf import get_token
-
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.http import Http404
-# from decimal import Decimal
 from django.contrib.gis.geos import Point, Polygon
-import os
 import tarfile
-from django.http import FileResponse, HttpResponse
-import shutil
-from starlette.background import BackgroundTask
-
-from django.core.paginator import Paginator
+from io import StringIO
 from django.http import JsonResponse
-from django.db.models import Q
 from datetime import datetime
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics
-from django.views.decorators.http import require_POST
+import pandas as pd
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import render
-from django.shortcuts import get_object_or_404
-from django.views.generic import ListView
-from .models import SiteMeasurementsAllPoints10, SiteMeasurementsAllPoints15, SiteMeasurementsAllPoints20, \
-    SiteMeasurementsDaily15, SiteMeasurementsDaily20, SiteMeasurementsSeries15, SiteMeasurementsSeries20
-
+import json
+import os
+import shutil
 from .serializers import *
+
+import concurrent.futures
 
 
 class CreateDeleteMixin:
@@ -54,7 +44,7 @@ class CreateDeleteMixin:
                 return Response(status=status.HTTP_204_NO_CONTENT)
             except Http404:
 
-                return Response({'error': 'Object not found'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "Object not found"}, status=status.HTTP_404_NOT_FOUND)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -73,14 +63,14 @@ class CreateDeleteMixin:
 class SitesList(generics.ListCreateAPIView):
     queryset = Site.objects.all()
     serializer_class = SiteSerializer
-    lookup_field = 'site_id'
+    lookup_field = "site_id"
     pagination_class = PageNumberPagination
     pagination_class.page_size = 100
 
 
-class SitesAtDate(generics.ListCreateAPIView):
+class SiteQueryset(generics.ListCreateAPIView):
     serializer_class = SiteMeasurementsDaily15Serializer
-    lookup_field = 'site_id'
+    lookup_field = "site_id"
     pagination_class = PageNumberPagination
     pagination_class.page_size = 100
     queryset = SiteMeasurementsDaily15.objects.all()
@@ -89,52 +79,42 @@ class SitesAtDate(generics.ListCreateAPIView):
         # queryset = SiteMeasurementsDaily15.objects.all()
         [start_date, end_date, min_lat, min_lng, max_lat, max_lng] = [None] * 6
 
-        if self.request.GET.get('start_date') != 'null' and self.request.GET.get('start_date'):
-            start_date = self.request.GET.get('start_date')
+        if self.request.GET.get("start_date") != "null" and self.request.GET.get("start_date"):
+            start_date = self.request.GET.get("start_date")
 
-        if self.request.GET.get('end_date') != 'null' and self.request.GET.get('end_date'):
-            end_date = self.request.GET.get('end_date')
+        if self.request.GET.get("end_date") != "null" and self.request.GET.get("end_date"):
+            end_date = self.request.GET.get("end_date")
 
-        if self.request.GET.get('min_lat') != 'null' and self.request.GET.get('min_lat'):
-            min_lat = ast.literal_eval(self.request.GET.get('min_lat'))
+        if self.request.GET.get("min_lat") != "null" and self.request.GET.get("min_lat"):
+            min_lat = ast.literal_eval(self.request.GET.get("min_lat"))
 
-        if self.request.GET.get('max_lat') != 'null' and self.request.GET.get('max_lat'):
-            max_lat = ast.literal_eval(self.request.GET.get('max_lat'))
+        if self.request.GET.get("max_lat") != "null" and self.request.GET.get("max_lat"):
+            max_lat = ast.literal_eval(self.request.GET.get("max_lat"))
 
-        if self.request.GET.get('min_lng') != 'null' and self.request.GET.get('min_lng'):
-            min_lng = ast.literal_eval(self.request.GET.get('min_lng'))
+        if self.request.GET.get("min_lng") != "null" and self.request.GET.get("min_lng"):
+            min_lng = ast.literal_eval(self.request.GET.get("min_lng"))
 
-        if self.request.GET.get('max_lng') != 'null' and self.request.GET.get('max_lng'):
-            max_lng = ast.literal_eval(self.request.GET.get('max_lng'))
+        if self.request.GET.get("max_lng") != "null" and self.request.GET.get("max_lng"):
+            max_lng = ast.literal_eval(self.request.GET.get("max_lng"))
 
-        if all([start_date, end_date]):
-            self.queryset = self.queryset.filter(date__gte=start_date, date__lte=end_date).distinct()
-
-        elif start_date:
-            self.queryset = self.queryset.filter(date__gte=start_date).distinct()
-
-        elif end_date:
-            self.queryset = self.queryset.filter(date__lte=end_date).distinct()
-
-        elif all([min_lat, max_lat, min_lng, max_lng, start_date, end_date]):
-            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        if all([min_lat, max_lat, min_lng, max_lng, start_date, end_date]):
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
             min_point = Point(float(min_lng), float(min_lat))
             max_point = Point(float(max_lng), float(max_lat))
             polygon = Polygon.from_bbox((min_point.x, min_point.y, max_point.x, max_point.y))
-
             self.queryset = self.queryset.filter(date__range=[start_date, end_date], latlng__within=polygon)
             count = self.queryset.filter(date__range=[start_date, end_date], latlng__within=polygon).count()
 
         elif all([min_lat, max_lat, min_lng, max_lng, start_date]):
-            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
             min_point = Point(float(min_lng), float(min_lat))
             max_point = Point(float(max_lng), float(max_lat))
             polygon = Polygon.from_bbox((min_point.x, min_point.y, max_point.x, max_point.y))
             self.queryset = self.queryset.filter(date__gte=start_date, latlng__within=polygon)
 
         elif all([min_lat, max_lat, min_lng, max_lng, end_date]):
-            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
             min_point = Point(float(min_lng), float(min_lat))
             max_point = Point(float(max_lng), float(max_lat))
             polygon = Polygon.from_bbox((min_point.x, min_point.y, max_point.x, max_point.y))
@@ -142,13 +122,21 @@ class SitesAtDate(generics.ListCreateAPIView):
 
         elif all([min_lat, max_lat, min_lng, max_lng]):
             min_point = Point(float(min_lng), float(min_lat))
-            print(min_point)
             max_point = Point(float(max_lng), float(max_lat))
             polygon = Polygon.from_bbox((min_point.x, min_point.y, max_point.x, max_point.y))
 
             self.queryset = self.queryset.filter(
                 latlng__within=polygon
             )
+
+        elif all([start_date, end_date]):
+            self.queryset = self.queryset.filter(date__gte=start_date, date__lte=end_date).distinct()
+
+        elif start_date:
+            self.queryset = self.queryset.filter(date__gte=start_date).distinct()
+
+        elif end_date:
+            self.queryset = self.queryset.filter(date__lte=end_date).distinct()
 
         else:
             self.queryset = SitesList.get_queryset(self)
@@ -165,35 +153,21 @@ class SitesAtDate(generics.ListCreateAPIView):
             # Extracting the "site" and "date" fields from each object
             extracted_data = []
             for measurement in site_measurements:
-                site_name = measurement['site']['name']
-                # date = measurement['date']
-                existing_entry = next((entry for entry in extracted_data if entry['site_name'] == site_name), None)
+                site_name = measurement["site"]["name"]
+                # date = measurement["date"]
+                existing_entry = next((entry for entry in extracted_data if entry["site_name"] == site_name), None)
                 if existing_entry:
                     pass
-                    # existing_entry['dates'].append(date)
+                    # existing_entry["dates"].append(date)
                 else:
-                    # extracted_data.append({'site_name': site_name, 'dates': [date]})
-                    extracted_data.append({'site_name': site_name})
+                    # extracted_data.append({"site_name": site_name, "dates": [date]})
+                    extracted_data.append({"site_name": site_name})
 
             return Response(extracted_data)
 
         else:
             serializer = self.get_serializer(queryset, many=True)
             return self.get_paginated_response(serializer.data)
-
-
-# class SitesList(CreateDeleteMixin, generics.ListCreateAPIView):
-#     queryset = Site.objects.all()
-#     serializer_class = SiteSerializer
-#     lookup_field = 'site_id'
-#     pagination_class = PageNumberPagination
-#     pagination_class.page_size = 100
-
-
-# class SiteDetail(CreateDeleteMixin, generics.RetrieveUpdateAPIView):
-#     queryset = Site.objects.all()
-#     serializer_class = SiteSerializer
-#     lookup_field = 'id'
 
 
 class SiteDetail(APIView):
@@ -208,63 +182,63 @@ class SiteDetail(APIView):
 
 class SiteMeasurementsList(generics.ListCreateAPIView):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['site', 'date']
-    ordering_fields = ['date', 'time']
-    ordering = ['-date']
+    filterset_fields = ["site", "date"]
+    ordering_fields = ["date", "time"]
+    ordering = ["-date"]
     pagination_class = PageNumberPagination
     pagination_class.page_size = 10000
 
     def get_serializer_class(self):
-        level = self.request.GET.get('level')
-        datatype = self.request.GET.get('type')
-        reading = self.request.GET.get('reading')
+        level = self.request.GET.get("level")
+        datatype = self.request.GET.get("type")
+        reading = self.request.GET.get("reading")
         if all([level, datatype, reading]):
             serializer_classes = {
-                'aod': {
-                    'all': {
-                        '10': SiteMeasurementsAllPoints10Serializer,
-                        '15': SiteMeasurementsAllPoints15Serializer,
-                        '20': SiteMeasurementsAllPoints20Serializer,
+                "aod": {
+                    # "all": {
+                    #     "10": SiteMeasurementsAllPoints10Serializer,
+                    #     "15": SiteMeasurementsAllPoints15Serializer,
+                    #     "20": SiteMeasurementsAllPoints20Serializer,
+                    # },
+                    "daily": {
+                        "15": SiteMeasurementsDaily15Serializer,
+                        "20": SiteMeasurementsDaily20Serializer,
                     },
-                    'daily': {
-                        '15': SiteMeasurementsDaily15Serializer,
-                        '20': SiteMeasurementsDaily20Serializer,
-                    },
-                    'series': {
-                        '15': SiteMeasurementsSeries15Serializer,
-                        '20': SiteMeasurementsSeries20Serializer,
-                    },
+                    # "series": {
+                    #     "15": SiteMeasurementsSeries15Serializer,
+                    #     "20": SiteMeasurementsSeries20Serializer,
+                    # },
                 },
-                'sda': {
-
-                },
+                # "sda": {
+                #
+                # },
             }
             return serializer_classes[reading][datatype][level]
         else:
             return SiteMeasurementsDaily15Serializer
 
     def get_model(self):
-        level = self.request.GET.get('level')
-        datatype = self.request.GET.get('type')
-        reading = self.request.GET.get('reading')
+        level = self.request.GET.get("level")
+        datatype = self.request.GET.get("type")
+        reading = self.request.GET.get("reading")
         if all([level, datatype, reading]):
             set_query = {
-                'aod': {
-                    'all': {
-                        '10': SiteMeasurementsAllPoints10,
-                        '15': SiteMeasurementsAllPoints15,
-                        '20': SiteMeasurementsAllPoints20,
+                "aod": {
+                    # "all": {
+                    #     "10": SiteMeasurementsAllPoints10,
+                    #     "15": SiteMeasurementsAllPoints15,
+                    #     "20": SiteMeasurementsAllPoints20,
+                    # },
+                    "daily": {
+                        "15": SiteMeasurementsDaily15,
+                        "20": SiteMeasurementsDaily20,
                     },
-                    'daily': {
-                        '15': SiteMeasurementsDaily15,
-                        '20': SiteMeasurementsDaily20,
-                    },
-                    'series': {
-                        '15': SiteMeasurementsSeries15,
-                        '20': SiteMeasurementsSeries20,
-                    },
+                    # "series": {
+                    #     "15": SiteMeasurementsSeries15,
+                    #     "20": SiteMeasurementsSeries20,
+                    # },
                 },
-                'sda': {
+                "sda": {
 
                 },
             }
@@ -273,47 +247,31 @@ class SiteMeasurementsList(generics.ListCreateAPIView):
             return SiteMeasurementsDaily15
 
     def get_queryset(self):
-        # queryset = self.get_queryset()
         model_class = self.get_model()
-        # if model_class is not None:
         queryset = model_class.objects.all()
-        # else:
-        #     Handle the case where the requested model class is not found
-        # queryset = super().get_queryset()
 
-        # serializer_class = self.get_serializer_class()
-        # self.get_serializer_class()
-        min_lat = self.request.GET.get('min_lat')
-        max_lat = self.request.GET.get('max_lat')
-        min_lng = self.request.GET.get('min_lng')
-        max_lng = self.request.GET.get('max_lng')
-        start_date_str = self.request.GET.get('start_date')
-        end_date_str = self.request.GET.get('end_date')
-        site_id = self.request.GET.get('site_id')
+        min_lat = self.request.GET.get("min_lat")
+        min_lng = self.request.GET.get("min_lng")
+        max_lat = self.request.GET.get("max_lat")
+        max_lng = self.request.GET.get("max_lng")
+        start_date_str = self.request.GET.get("start_date")
+        end_date_str = self.request.GET.get("end_date")
+        site_id = self.request.GET.get("site_id")
 
-        if all([start_date_str, end_date_str, site_id]):
-            name = site_id
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            self.queryset = queryset.filter(date__range=[start_date, end_date], site_id__name=name)
+        if (all([min_lat, max_lat, min_lng, max_lng, start_date_str, end_date_str]) and
+                all([min_lat, max_lat, min_lng, max_lng, start_date_str, end_date_str]) != "null" and
+                all([min_lat, max_lat, min_lng, max_lng, start_date_str, end_date_str]) != ""):
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            min_point = Point(float(min_lng), float(min_lat))
+            max_point = Point(float(max_lng), float(max_lat))
+            polygon = Polygon.from_bbox((min_point.x, min_point.y, max_point.x, max_point.y))
 
-        elif all([start_date_str, site_id]):
-            name = site_id
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            self.queryset = queryset.filter(date__gte=start_date, site_id__name=name)
+            self.queryset = queryset.filter(date__range=[start_date, end_date], latlng__within=polygon)
 
-        elif all([end_date_str, site_id]):
-            name = site_id
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            self.queryset = queryset.filter(date__lte=end_date, site_id__name=name)
-
-        elif all([start_date_str, end_date_str]):
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            self.queryset = queryset.filter(date__range=[start_date, end_date])
-
-        elif all([min_lat, max_lat, min_lng, max_lng]) and all([min_lat, max_lat, min_lng, max_lng]) != 'null' and '':
-            # print(all([min_lat, max_lat, min_lng, max_lng]) is not 'null' or '')
+        elif (all([min_lat, max_lat, min_lng, max_lng]) and
+              all([min_lat, max_lat, min_lng, max_lng]) != "null" and
+              all([min_lat, max_lat, min_lng, max_lng]) != ""):
             min_point = Point(float(min_lng), float(min_lat))
             max_point = Point(float(max_lng), float(max_lat))
             polygon = Polygon.from_bbox((min_point.x, min_point.y, max_point.x, max_point.y))
@@ -322,27 +280,39 @@ class SiteMeasurementsList(generics.ListCreateAPIView):
                 latlng__within=polygon
             )
 
-        elif all([min_lat, max_lat, min_lng, max_lng, start_date_str, end_date_str]) and all(
-                [min_lat, max_lat, min_lng, max_lng, start_date_str, end_date_str]) != 'null' and '':
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            min_point = Point(float(min_lng), float(min_lat))
-            max_point = Point(float(max_lng), float(max_lat))
-            polygon = Polygon.from_bbox((min_point.x, min_point.y, max_point.x, max_point.y))
+        elif all([start_date_str, end_date_str, site_id]):
+            name = site_id
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            self.queryset = queryset.filter(date__range=[start_date, end_date], site_id__name=name)
 
-            self.queryset = queryset.filter(date__range=[start_date, end_date], latlng__within=polygon)
+        elif all([start_date_str, site_id]):
+            name = site_id
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            self.queryset = queryset.filter(date__gte=start_date, site_id__name=name)
+
+        elif all([end_date_str, site_id]):
+            name = site_id
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            self.queryset = queryset.filter(date__lte=end_date, site_id__name=name)
+
+        elif all([start_date_str, end_date_str]):
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            self.queryset = queryset.filter(date__range=[start_date, end_date])
 
         elif site_id:
             name = site_id
             self.queryset = queryset.objects.filter(site_id__name=name)
 
         elif start_date_str:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
             self.queryset = queryset.filter(date__gte=start_date)
 
         elif end_date_str:
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
             self.queryset = queryset.filter(date__lte=end_date)
+
         elif queryset is not None:
             self.queryset = queryset
 
@@ -351,36 +321,31 @@ class SiteMeasurementsList(generics.ListCreateAPIView):
 
 class SiteDelete(generics.DestroyAPIView):
     queryset = Site.objects.all()
-    lookup_field = 'name'
+    lookup_field = "name"
 
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def apiOverview(request):
     # TODO: UPDATE TO CURRENT URLS
     api_urls = {
-        # 'List': '/site-list/',
-        # 'Detail View': 'site-detail/<str:pk>',
-        # 'Create': '/site-create/',
-        # 'Update': '/site-update/<str:pk>',
-        # 'Delete': '/site-delete/<str:pk>',
+        # "List": "/site-list/",
+        # "Detail View": "site-detail/<str:pk>",
+        # "Create": "/site-create/",
+        # "Update": "/site-update/<str:pk>",
+        # "Delete": "/site-delete/<str:pk>",
     }
     return Response(api_urls)
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def measurementsOverview(request):
     urls = {
-        'required params': 'type, level, aod',
-        "all - 10": "/measurements/?reading=aod&level=10&type=all&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "all - 15": "/measurements/?reading=aod&level=15&type=all&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "all - 20": "/measurements/?reading=aod&level=20&type=all&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
+        "required params": "type, level, aod",
         "daily - 15": "/measurements/?reading=aod&level=15&type=daily&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
         "daily - 20": "/measurements/?reading=aod&level=20&type=daily&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "series - 15": "/measurements/?reading=aod&level=15&type=series&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
-        "series - 20": "/measurements/?reading=aod&level=20&type=series&site_id=ABC123&start_date=2022-01-01&end_date=2022-01-31",
         "box latlng example - Atlantic Ocean": "/measurements/?reading=aod&level=20&type=series&min_lat=0&min_lng=-80&max_lat=60&max_lng=-20"
     }
     return Response(urls)
@@ -388,86 +353,285 @@ def measurementsOverview(request):
 
 def get_csrf_token(request):
     csrf_token = get_token(request)
-    return JsonResponse({'csrfToken': csrf_token})
+    return JsonResponse({"csrfToken": csrf_token})
 
 
 @csrf_exempt
 def download_data(request):
-    print(request.method)
-    if request.method == 'OPTIONS':
-        try:
-            print("HERE")
-            print(request.body.find('sites'))
-            data = json.loads(request.body.decode('utf-8'))
-            sites = data.get('sites', [])
-            print(sites)
+    global cleanup
+    if request.method == "POST":
+        MAX_WORKERS = 4
 
-            # TODO: Process the sites variable as needed
-
-            response = HttpResponse()
-            response["Access-Control-Allow-Origin"] = "*"
-            response["Access-Control-Allow-Methods"] = 'OPTIONS, GET, HEAD, POST'  # Allow POST and OPTIONS methods
-            response["Access-Control-Allow-Headers"] = "*"
-            # csrf_token = 'my_custom_csrf_token_value'
-            # response.set_cookie('X-CSRFToken', csrf_token)
-            return response
-
-        except json.decoder.JSONDecodeError:
-            return HttpResponse('Invalid JSON data in the request body.')  # sites = data.get('sites', [])
-        # print(sites)
-        #
-        # response = HttpResponse()
-        # response['Access-Control-Allow-Origin'] = '*'
-        # response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        # response['Access-Control-Allow-Headers'] = 'Content-Type'
-        # return response
-    else:
-        # data = request.POST.get('sites')
-        sites = request.GET.get('sites')
-        if sites is not None:
-            sites = ast.literal_eval(sites)
-
-        # TODO: Eventually add optional date filtering of sets
-        start_date = request.POST.get('start_date')
-        end_date = request.POST.get('end_date')
-        timestamp = str(int(time.time()))
-
-        source_dir = r'D:/DevOps/Active/mandatabase/SRC'  # Path to the source directory
-        temp_base_dir = r'D:/DevOps/Active/mandatabase/temp'  # Path to the temporary directory
-        unique_temp_folder = timestamp + '_MAN_DATA'
-        tar_file_name = unique_temp_folder + '.tar.gz'  # Name for the tar archive
+        source_dir = r"D:/DevOps/Active/mandatabase/SRC"  # Path to the source directory
+        temp_base_dir = r"D:/DevOps/Active/mandatabase/temp"  # Path to the temporary directory
+        unique_temp_folder = str(int(time.time())) + "_MAN_DATA"
+        tar_file_name = unique_temp_folder + ".tar.gz"  # Name for the tar archive
         temp_dir = os.path.join(temp_base_dir, unique_temp_folder)
         save_path = os.path.join(temp_base_dir, tar_file_name)
-        keep_files = ['data_usage_policy']
+        keep_files = ["data_usage_policy"]
+        data = json.loads(request.body.decode("utf-8"))
+
+        sites = data["sites"]["list"]
+        sites = [item for item in sites if item != ""]
+        date_list = data["sites"]["dates"]
+        options = data["download_options"]
+        # key_list = [key for key, value in options.items() if value]
+
+        # Quality Allowed
+        # lev10 = data["download_options"]["lev10"]
+        # lev15 = data["download_options"]["lev15"]
+        # lev20 = data["download_options"]["lev20"]
+
+        # Date Contraint
+        start_date = data["date_range"]["start_date"]
+        end_date = data["date_range"]["end_date"]
+
+        # Check and assign new values if necessary
+        if start_date is None or start_date == "null":
+            start_date = None  # Replace with your default value
+
+        if end_date is None or end_date == "null":
+            end_date = None  # Replace with your default value
+
 
         try:
+            def move_accepted_files(file_pair):
+                try:
+                    source_file, dest_file, filename = file_pair
+
+                    with open(source_file, "r") as file:
+                        content = file.read()
+
+                    # Split the content into lines
+                    lines = content.split("\n")
+
+                    # Extract the first four lines
+                    first_four_lines = "\n".join(lines[:4])
+
+                    with open(dest_file, "w") as file:
+                        file.write(first_four_lines)
+
+                    # Create a DataFrame from the remaining lines
+                    remaining_content = "\n".join(lines[4:])
+                    key = filename.rsplit("_", 2)[0]
+
+                    check_date_column = "Date(dd:mm:yyyy)"
+                    check_date2_column = "Date(dd:mm:yyyy)"
+
+                    format_one = [
+                        "all_points.lev10",
+                        "all_points.lev15",
+                        "all_points.lev20",
+                    ]
+                    format_two = [
+                        "daily.lev15",
+                        "daily.lev20",
+                        "series.lev15",
+                        "series.lev20",
+                    ]
+                    format_sda = [
+                        "points.ONEILL",
+                        "daily.ONEILL",
+                        "series.ONEILL"
+                    ]
+
+
+                    aod_ap_header = "Date(dd:mm:yyyy),Time(hh:mm:ss),Air Mass,Latitude,Longitude,AOD_340nm,AOD_380nm,AOD_440nm,AOD_500nm,AOD_675nm,AOD_870nm,AOD_1020nm,AOD_1640nm,Water Vapor(cm),440-870nm_Angstrom_Exponent,Last_Processing_Date(dd:mm:yyyy),AERONET_Number,Microtops_Number".split(
+                        ",")
+
+                    aod_daily_series_header = "Date(dd:mm:yyyy),Time(hh:mm:ss),Air Mass,Latitude,Longitude,AOD_340nm,AOD_380nm,AOD_440nm,AOD_500nm,AOD_675nm,AOD_870nm,AOD_1020nm,AOD_1640nm,Water Vapor(cm),440-870nm_Angstrom_Exponent,STD_340nm,STD_380nm,STD_440nm,STD_500nm,STD_675nm,STD_870nm,STD_1020nm,STD_1640nm,STD_Water_Vapor(cm),STD_440-870nm_Angstrom_Exponent,Number_of_Observations,Last_Processing_Date(dd:mm:yyyy),AERONET_Number,Microtops_Number".split(
+                        ",")
+
+                    sda_ap_header = "Date(dd:mm:yyyy),Time(hh:mm:ss),Julian_Day,Latitude,Longitude,Total_AOD_500nm[tau_a],Fine_Mode_AOD_500nm[tau_f],Coarse_Mode_AOD_500nm[tau_c],FineModeFraction_500nm[eta],CoarseModeFraction_500nm[1-eta],2nd_Order_Reg_Fit_Error-Total_AOD_500nm[regression_dtau_a],RMSE_Fine_Mode_AOD_500nm[Dtau_f],RMSE_Coarse_Mode_AOD_500nm[Dtau_c],RMSE_FMF_and_CMF_Fractions_500nm[Deta],Angstrom_Exponent(AE)-Total_500nm[alpha],dAE/dln(wavelength)-Total_500nm[alphap],AE-Fine_Mode_500nm[alpha_f],dAE/dln(wavelength)-Fine_Mode_500nm[alphap_f],Solar_Zenith_Angle,Air_Mass,870nm_Input_AOD,675nm_Input_AOD,500nm_Input_AOD,440nm_Input_AOD,380nm_Input_AOD,Last_Processing_Date (dd:mm:yyyy),AERONET_Number,Microtops_Number,Number_of_Wavelengths,Exact_Wavelengths_for_Input_AOD(nm)".split(
+                            ",")
+
+                    sda_daily_series_header = "Date(dd:mm:yyyy),Time(hh:mm:ss),Julian_Day,Latitude,Longitude,Total_AOD_500nm[tau_a],Fine_Mode_AOD_500nm[tau_f],Coarse_Mode_AOD_500nm[tau_c],FineModeFraction_500nm[eta],CoarseModeFraction_500nm[1-eta],2nd_Order_Reg_Fit_Error-Total_AOD_500nm[regression_dtau_a],RMSE_Fine_Mode_AOD_500nm[Dtau_f],RMSE_Coarse_Mode_AOD_500nm[Dtau_c],RMSE_FMF_and_CMF_Fractions_500nm[Deta],Angstrom_Exponent(AE)-Total_500nm[alpha],dAE/dln(wavelength)-Total_500nm[alphap],AE-Fine_Mode_500nm[alpha_f],dAE/dln(wavelength)-Fine_Mode_500nm[alphap_f],870nm_Input_AOD,675nm_Input_AOD,500nm_Input_AOD,440nm_Input_AOD,380nm_Input_AOD,STDEV-Total_AOD_500nm[tau_a],STDEV-Fine_Mode_AOD_500nm[tau_f],STDEV-Coarse_Mode_AOD_500nm[tau_c],STDEV-FineModeFraction_500nm[eta],STDEV-CoarseModeFraction_500nm[1-eta],STDEV-2nd_Order_Reg_Fit_Error-Total_AOD_500nm[regression_dtau_a],STDEV-RMSE_Fine_Mode_AOD_500nm[Dtau_f],STDEV-RMSE_Coarse_Mode_AOD_500nm[Dtau_c],STDEV-RMSE_FMF_and_CMF_Fractions_500nm[Deta],STDEV-Angstrom_Exponent(AE)-Total_500nm[alpha],STDEV-dAE/dln(wavelength)-Total_500nm[alphap],STDEV-AE-Fine_Mode_500nm[alpha_f],STDEV-dAE/dln(wavelength)-Fine_Mode_500nm[alphap_f],STDEV-870nm_Input_AOD,STDEV-675nm_Input_AOD,STDEV-500nm_Input_AOD,STDEV-440nm_Input_AOD,STDEV-380nm_Input_AOD,Number_of_Observations,Last_Processing_Date (dd:mm:yyyy),AERONET_Number,Microtops_Number,Number_of_Wavelengths,Exact_Wavelengths_for_Input_AOD(nm)".split(
+                        ",")
+
+                    sda_new_daily_series_header = [column.replace('-', '').replace('[', '').replace(']', '') for column in sda_daily_series_header]
+                    sda_new_ap_header = [column.replace('-', '').replace('[', '').replace(']', '') for column in sda_ap_header]
+
+                    headers = {
+                        "points.ONEILL": sda_new_ap_header,
+                        "daily.ONEILL": sda_new_daily_series_header,
+                        "series.ONEILL": sda_new_daily_series_header,
+
+                    }
+
+                    if ".lev" in filename and filename:
+                        df = pd.read_csv(StringIO("".join(remaining_content)), encoding="latin-1", header=0,
+                                         delimiter=",")
+                        #     # print(key)
+                        #     # print(f"{check_date_column} \n {df.columns}")
+                        # print(df.head())
+                        key = filename.rsplit("_", 1)[0]
+                        key = key.split("_all")[0]
+                        df[check_date_column] = pd.to_datetime(df[check_date_column], format="%d:%m:%Y")
+                        # print(df[check_date_column])
+                        is_in_list = df[check_date_column].isin(date_list[key])
+                        filtered_df = df.loc[is_in_list]
+                        filtered_df[check_date_column] = pd.to_datetime(filtered_df[check_date_column],
+                                                                        format="%Y-%m-%d").dt.strftime("%d:%m:%Y")
+
+                        # filtered_df.to_csv(dest_file, index=False)
+
+                        if not filtered_df.empty:
+
+                            # filtered_df= filtered_df.to_datetime(df[check_date_column], format="%d-%m-%Y").dt.strftime("%Y:%m:%d")
+                            filtered_df.to_csv(dest_file, index=False)
+                            with open(dest_file, "r+") as file:
+                                file_content = file.read()
+                                file.seek(0, 0)
+                                file.write(f"{first_four_lines}\n{file_content}")
+                        else:
+                            print("No matching records found.")
+
+                    if "ONEILL" in filename:
+                        pass
+                        # # Fixing for final delivery
+                        # key = source_file.rsplit('_', 2)[-2]
+                        # rows = None
+                        # with open(source_file, 'r') as file:
+                        #     rows = list(csv.reader(file))
+                        #
+                        # rows[4] = headers[key]
+                        #
+                        # with open(source_file, 'w', newline='') as file:
+                        #     writer = csv.writer(file)
+                        #     writer.writerows(rows)
+                        #
+                        # with open(source_file, "r") as file:
+                        #     content = file.read()
+                        #
+                        #     # Split the content into lines
+                        # lines = content.split("\n")
+                        #
+                        # # Extract the first four lines
+                        # first_four_lines = "\n".join(lines[:4])
+                        #
+                        # with open(dest_file, "w") as file:
+                        #     file.write(first_four_lines)
+                        #
+                        # # Create a DataFrame from the remaining lines
+                        # remaining_content = "\n".join(lines[4:])
+                        # # key = source_file.rsplit("_", 2)[-2]
+                        #
+                        # # print(rows[4])
+                        #
+                        # # key= source_file.rsplit('_', 2)[-2]
+                        # df = pd.read_csv(StringIO("".join(remaining_content)), encoding="latin-1", header=None, names=headers[key],
+                        #                  delimiter=",")
+                        # print(df.head())
+                        # # print(df.head())
+                        #
+                        # # print(df)
+                        # #
+                        # # if not filtered_df.empty:
+                        # #     # filtered_df= filtered_df.to_datetime(df[check_date_column], format="%d-%m-%Y").dt.strftime("%Y:%m:%d")
+                        # #     filtered_df.to_csv(dest_file, index=False)
+                        # #     with open(dest_file, "r+") as file:
+                        # #         file_content = file.read()
+                        # #         file.seek(0, 0)
+                        # #         file.write(f"{first_four_lines}\n{file_content}")
+
+                except Exception as e:
+                    print(e)
+
+            def create_tar_file(base_dir, save_path, tar_file_name):
+                with tarfile.open(save_path, "w:gz") as tar:
+                    tar.add(base_dir, os.path.basename(base_dir))
+
             def cleanup():
                 shutil.rmtree(temp_dir)
                 os.remove(save_path)
 
             # Copy the contents of source_dir to temp_dir
+            files_to_process = []
+            # print(data["download_options"])
+
             for root, dirs, files in os.walk(source_dir):
+
+                # Filter remaining datasets based on user's entered criteria
+                if not data["download_options"]["aod"]:
+                    if "AOD" in dirs:
+                        dirs.remove("AOD")
+
+                if not data["download_options"]["sda"]:
+                    if "SDA" in dirs:
+                        dirs.remove("SDA")
+
+                if not data["download_options"]["lev10"]:
+                    files = [file for file in files if not file.endswith("10")]
+
+                if not data["download_options"]["lev15"]:
+                    files = [file for file in files if not file.endswith("15")]
+
+                if not data["download_options"]["lev20"]:
+                    files = [file for file in files if not file.endswith("20")]
+
+                if not data["download_options"]["series"]:
+                    files = [file for file in files if "series" not in file]
+
+                if not data["download_options"]["daily"]:
+                    files = [file for file in files if "daily" not in file]
+
+                if not data["download_options"]["all_points"]:
+                    files = [file for file in files if "all_points" not in file]
+
+                # ------- end of filtering
+
                 for file in files:
                     if (sites is not None and any(site in file for site in sites)) or any(
                             kf in file for kf in keep_files):
                         source_file = os.path.join(root, file)
                         dest_file = os.path.join(temp_dir, os.path.relpath(source_file, source_dir))
                         os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-                        shutil.copy2(source_file, dest_file)
+                        files_to_process.append((source_file, dest_file, file))
 
-            response = create_tar_file(temp_dir, save_path, tar_file_name)
+            # Create the temp directory
+            os.makedirs(temp_dir, exist_ok=True)
+
+            # Create the concurrent executor
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                # Create dupe of files that need to be
+                futures = [executor.submit(move_accepted_files, file_pair) for file_pair in files_to_process]
+
+                # Process the results as they complete
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        result = future.result()
+                        # print("Task completed successfully:", result)
+                    except Exception as e:
+                        print("Task encountered an error:", str(e))
+
+            create_tar_file(temp_dir, save_path, tar_file_name)
+
+            with open(save_path, "rb") as file:
+                response = HttpResponse(file, content_type="application/x-tar")
+                response["Content-Disposition"] = f"attachment; filename=\"{tar_file_name}\""
+
+                # Set CORS headers
+                response["Access-Control-Allow-Origin"] = "*"
+                response["Access-Control-Allow-Methods"] = "OPTIONS, GET, HEAD, POST"
+                response["Access-Control-Allow-Headers"] = "*"
+
+                return response
+
+        except Exception as e:
+            print(e)
+
+        finally:
+            cleanup()
+
+    if request.method == "OPTIONS":
+        try:
+            # Validate Post request
+            response = HttpResponse()
+            response["Access-Control-Allow-Origin"] = "*"
+            response["Access-Control-Allow-Methods"] = "OPTIONS, GET, HEAD, POST"
+            response["Access-Control-Allow-Headers"] = "*"
 
             return response
 
-        except Exception:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            os.remove(save_path, dir_fd=None)
-
-            # Return an error response
-            return HttpResponse('An error occurred while processing the request.')
-
-
-def create_tar_file(temp_dir, save_path, tar_file_name):
-    with tarfile.open(save_path, 'w:gz') as tar:
-        tar.add(temp_dir, arcname=os.path.basename(temp_dir))
-    return FileResponse(open(save_path, 'rb'), as_attachment=True, filename=tar_file_name)
+        except json.decoder.JSONDecodeError:
+            return HttpResponse("Invalid JSON data in the request body.")  # sites = data.get("sites", [])
