@@ -20,7 +20,6 @@ urlpatterns = \
          name='measurements-overview'),
     # path('sites/measurements/D15/', SiteMeasurementsDaily15ListDate.as_view(),
     #    name='measurement-list'),
-    path('sites/<str:name>/delete/', SiteDelete.as_view(),
-         name='site-delete'),
+    path('sites/<str:name>/delete/', SiteDelete.as_view(), name='site-delete'),
     path('download/', download_data, name='download_data'),
 ]
