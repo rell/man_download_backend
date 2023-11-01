@@ -3,7 +3,6 @@ maritimeapp/migrations/
 .idea/
 __pycache__/
 source/
-SRC_2/
+SRC*
 config
 *.ini
-config.ini
