@@ -1,7 +1,9 @@
 venv/
-config.ini
 maritimeapp/migrations/
 .idea/
 __pycache__/
 source/
-SRC/
+SRC_2/
+config
+*.ini
+config.ini
