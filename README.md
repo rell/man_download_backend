@@ -18,4 +18,6 @@ SECRET_KEY =
 ## Installation
 RHEL:
 Dependencies:
+```bash
 sudo yum istall postgis33_15
+````
