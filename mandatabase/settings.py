@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from django.core.management.utils import get_random_secret_key
-from osgeo import gdal
+# from osgeo import gdal
 from pathlib import Path
 import os
 import configparser

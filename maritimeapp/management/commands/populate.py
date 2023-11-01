@@ -24,7 +24,7 @@ format_two = [
     'series.lev15',
     'series.lev20',
 ]
-# format_three = [
+# format_three = [1
 #
 # ]
 
@@ -161,7 +161,7 @@ class Command(BaseCommand):
             'daily.lev20',
         ]
 
-        # Download the file from the static URL
+        # Download the MAN file from the static URL
         url = 'https://aeronet.gsfc.nasa.gov/new_web/All_MAN_Data_V3.tar.gz'
         response = requests.get(url)
         tar_contents = response.content
