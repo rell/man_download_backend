@@ -19,5 +19,5 @@ SECRET_KEY =
 RHEL:
 Dependencies:
 ```bash
-sudo yum istall postgis33_15
+sudo yum imstall postgis33_15 postgresql15.x86_64 postgressql15-server postgresql-devel
 ````
