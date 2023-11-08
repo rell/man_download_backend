@@ -427,7 +427,6 @@ def download_data(request):
                 ]
 
                 if key_to_compare in ap_aod:
-                    print("HERE")
                     return "Date(dd:mm:yyyy),Time(hh:mm:ss),Air Mass,Latitude,Longitude,AOD_340nm,AOD_380nm,AOD_440nm,AOD_500nm,AOD_675nm,AOD_870nm,AOD_1020nm,AOD_1640nm,Water Vapor(cm),440-870nm_Angstrom_Exponent,Last_Processing_Date(dd:mm:yyyy),AERONET_Number,Microtops_Number".split(
                         ",")
                 elif key_to_compare in daily_aod:
@@ -487,7 +486,6 @@ def download_data(request):
                         df = pd.read_csv(StringIO("".join(remaining_content)), encoding="latin-1", header=None,
                                          delimiter=",")
                         df.columns = header
-                        print(df.head())
                         key = filename.rsplit("_", 1)[0]
                         key = key.split("_all")[0]
                         df[check_date_column] = pd.to_datetime(df[check_date_column], format="%d:%m:%Y")
