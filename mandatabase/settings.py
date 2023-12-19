@@ -37,11 +37,17 @@ SECRET_KEY = config.get('django', 'SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'http://ec2-50-19-10-121.compute-1.amazonaws.com/',
+    '50.19.10.121',
+    'http://50.10.19.121',
+    '172.31.32.155',
+    'http://172.31.32.155',
+]
 
 # Application definition
 INSTALLED_APPS = [
-    # 'corsheaders',
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -64,8 +70,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     # reponse headers
     'django.contrib.sessions.middleware.SessionMiddleware',
-    # 'corsheaders.middleware.CorsMiddleware',
-
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.security.SecurityMiddleware',
