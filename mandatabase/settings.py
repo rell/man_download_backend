@@ -23,7 +23,7 @@ config = configparser.ConfigParser()
 config.read('config.ini')
 
 # from django.contrib.gis.gdal import GDAL_LIBRARY_PATH
-GDAL_LIBRARY_PATH = os.path.join('C:', 'Program Files', 'GDAL', 'gdal.dll')
+# GDAL_LIBRARY_PATH = os.path.join('C:', 'Program Files', 'GDAL', 'gdal.dll')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
