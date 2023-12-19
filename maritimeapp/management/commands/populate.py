@@ -167,7 +167,7 @@ class Command(BaseCommand):
         tar_contents = response.content
         # Extract the contents of the .tar.gz file
         with tarfile.open(fileobj=io.BytesIO(tar_contents), mode='r:gz') as tar:
-            tar.extractall(path=r'D:\DevOps\Active\mandatabase\SRC')
+            tar.extractall(path=r'./SRC')
             # logging.log("Download Completed")
 
         # Read the folder contents
