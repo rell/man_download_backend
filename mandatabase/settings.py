@@ -43,6 +43,7 @@ ALLOWED_HOSTS = [
     'http://50.10.19.121',
     '172.31.32.155',
     'http://172.31.32.155',
+    'django',
 ]
 
 # Application definition
