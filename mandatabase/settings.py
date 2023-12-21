@@ -41,8 +41,6 @@ ALLOWED_HOSTS = [
     'http://ec2-50-19-10-121.compute-1.amazonaws.com/',
     '50.19.10.121',
     'http://50.10.19.121',
-    '172.31.32.155',
-    'http://172.31.32.155',
     'django',
 ]
 
