@@ -16,8 +16,4 @@ SECRET_KEY =
 ```
 
 ## Installation
-RHEL:
-Dependencies:
-```bash
-sudo yum imstall postgis33_15 postgresql15.x86_64 postgressql15-server postgresql-devel
-````
+Request dockerfile from private repo for automated setup of backend env
